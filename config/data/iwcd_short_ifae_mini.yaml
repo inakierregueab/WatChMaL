@@ -1,0 +1,3 @@
+split_path: /data/neutrinos/IWCD_Data/index_lists/4class_e_mu_gamma_pi0/IWCD_mPMT_Short_4_class_3M_emgp0_fixed_idxs.npz
+dataset:
+  h5file: /data/neutrinos/IWCD_Data/IWCD_mPMT_Short_emgp0_E0to1000MeV_digihits_mini.h5
