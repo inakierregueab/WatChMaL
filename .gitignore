@@ -114,4 +114,4 @@ kernprof.py
 .idea/
 __MACOSX/
 /outputs/
-!/data/
+/data/
