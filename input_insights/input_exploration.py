@@ -7,13 +7,21 @@ import h5py
 
 # LOAD FILES:
 # Event & Hit
-h5_file_path = './../../data/IWCD_mPMT_Short_emgp0_E0to1000MeV_digihits_mini.h5'
+h5_file_path = '../data/IWCD_mPMT_Short_emgp0_E0to1000MeV_digihits_mini.h5'
 raw_h5_file = h5py.File(h5_file_path, 'r')
 num_events = len(raw_h5_file.get('event_ids'))
 # mPMTS positions
-positions = np.load('./../../data/IWCDshort_mPMT_image_positions.npz')
+positions = np.load('../data/IWCDshort_mPMT_image_positions.npz')
 positions_df = pd.DataFrame(positions['mpmt_image_positions'])
 # Index splitting?
+
+# Geo of each pmt
+geo = np.load('../data/geo_mPMTshort.npz')
+geo_dict = {}
+for item in geo.files:
+    geo_dict[item] = geo[item]
+
+
 
 # Read raw h5 file
 dataset = {}
