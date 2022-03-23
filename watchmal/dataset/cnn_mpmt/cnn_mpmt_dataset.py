@@ -60,12 +60,20 @@ class CNNmPMTDataset(H5Dataset):
         hit_rows = self.mpmt_positions[hit_mpmts, 0]
         hit_cols = self.mpmt_positions[hit_mpmts, 1]
 
-        data = np.zeros(self.data_size, dtype=np.float32)
-        data[hit_pmt_in_modules, hit_rows, hit_cols] = hit_data
+        charge_data = np.zeros(self.data_size, dtype=np.float32)
+        time_data = np.zeros(self.data_size, dtype=np.float32)
+
+        charge_data[hit_pmt_in_modules, hit_rows, hit_cols] = hit_data[0]  # TODO: projecting on the channel dim => plot!!
+        time_data[hit_pmt_in_modules, hit_rows, hit_cols] = hit_data[1]   # TODO: set time values in the same ranges as charge
 
         # fix barrel array indexing to match endcaps in xyz ordering
-        barrel_data = data[:, self.barrel_rows, :]
-        data[:, self.barrel_rows, :] = barrel_data[barrel_map_array_idxs, :, :]
+        charge_barrel_data = charge_data[:, self.barrel_rows, :]
+        time_barrel_data = time_data[:, self.barrel_rows, :]
+        charge_data[:, self.barrel_rows, :] = charge_barrel_data[barrel_map_array_idxs, :, :]
+        time_data[:, self.barrel_rows, :] = time_barrel_data[barrel_map_array_idxs, :, :]
+
+        # merge all channels
+        data = np.concatenate((charge_data, time_data), axis=0)
 
         # collapse arrays if desired
         if self.collapse_arrays:
@@ -77,7 +85,9 @@ class CNNmPMTDataset(H5Dataset):
 
         data_dict = super().__getitem__(item)
 
-        processed_data = from_numpy(self.process_data(self.event_hit_pmts, self.event_hit_charges))
+        hit_data = np.vstack((self.event_hit_charges, self.event_hit_times))
+
+        processed_data = from_numpy(self.process_data(self.event_hit_pmts, hit_data))
         
         processed_data = du.apply_random_transformations(self.transforms, processed_data)
         
