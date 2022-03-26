@@ -15,6 +15,7 @@ data_loaders:
       - horizontal_flip
       - vertical_flip
       - front_back_reflection
+      - rotation180
   validation:
     split_key: val_idxs
     batch_size: 512
