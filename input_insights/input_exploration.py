@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+from mpl_toolkits import mplot3d
 import scipy
 import h5py
 
@@ -11,21 +12,42 @@ import h5py
 #raw_h5_file = h5py.File(h5_file_path, 'r')
 #num_events = len(raw_h5_file.get('event_ids'))
 # mPMTS positions
-positions = np.load('/Users/mariateresaalvarez-buhillapuig/Desktop/repositories/WatChMaL/data/IWCDshort_mPMT_image_positions.npz')
-positions_df = pd.DataFrame(positions['mpmt_image_positions'])
-ax = positions_df.plot.scatter(x=1,y=0)
-plt.show()
-# Index splitting?
 
-# Geo of each pmt
-geo = np.load('../data/geo_mPMTshort.npz')
+#    POSITIONS OF MPMTS IN THE 2D IMAGE
+positions = np.load('/data/neutrinos/IWCD_Data/IWCDshort_mPMT_image_positions.npz')
+positions_df = pd.DataFrame(positions['mpmt_image_positions'])
+plt.figure(figsize=(14, 8))
+ax = positions_df.plot.scatter(x=1, y=0)
+ax.set_xlabel(r'$x$')
+ax.set_ylabel(r'$y$')
+ax.set_ylim(top=30)
+ax.set_title('mPMTs positions (unrolled cylinder)')
+plt.show()
+
+
+#       POSITIONS, ORIENTATION AND TUBE NUMBER FOR EACH PMT IN 3D
+geo = np.load('/home/ierregue/ssh_tunel/data/geo_mPMTshort.npz')
 geo_dict = {}
 for item in geo.files:
     geo_dict[item] = geo[item]
 
+positions = geo_dict['position']
+# Creating figure
+fig = plt.figure(figsize=(10, 10))
+ax = plt.axes(projection="3d")
+
+# Creating plot
+ax.scatter3D(positions[:,2], positions[:,0], positions[:,1], color="royalblue", s=1)
+plt.title("PMTs positions", size=20)
+
+plt.tight_layout()
+
+# show plot
+plt.show()
 
 
-# Read raw h5 file
+
+#       DATASET
 dataset = {}
 for feature in raw_h5_file.keys():
     dataset[feature] = np.array(raw_h5_file.get(feature))
