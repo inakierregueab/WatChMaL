@@ -7,6 +7,7 @@ from torch import from_numpy
 from torch import flip
 
 # generic imports
+import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import random
@@ -54,8 +55,8 @@ class CNNmPMTDataset(H5Dataset):
         Returns:
             data                    ... array of hits in cnn format
         """
-        hit_mpmts = hit_pmts // pmts_per_mpmt
-        hit_pmt_in_modules = hit_pmts % pmts_per_mpmt
+        hit_mpmts = hit_pmts // pmts_per_mpmt   # Mapping each PMT hit to its correspondent mPMT
+        hit_pmt_in_modules = hit_pmts % pmts_per_mpmt   # Mapping each PMT to a channel (position in its mPMT)
 
         hit_rows = self.mpmt_positions[hit_mpmts, 0]
         hit_cols = self.mpmt_positions[hit_mpmts, 1]
@@ -77,9 +78,19 @@ class CNNmPMTDataset(H5Dataset):
 
         data_dict = super().__getitem__(item)
 
-        charge_data = self.from_data_to_image(self.event_hit_charges)
+        rand_choice = random.randint(0, len(self.transforms))
 
-        time_data = self.from_data_to_image(self.event_hit_times)
+        charge_data = self.from_data_to_image(self.event_hit_charges, rand_choice)
+        #charge_data = np.array(charge_data)
+        #self.event_plotter(charge_data, mode='heatmap', type='charge')
+        #self.event_plotter(charge_data, mode='scatter', type='charge')
+        #charge_data = from_numpy(charge_data)
+
+        time_data = self.from_data_to_image(self.event_hit_times, rand_choice)
+        #time_data = np.array(time_data)
+        #self.event_plotter(time_data, mode='heatmap', type='time')
+        #self.event_plotter(time_data, mode='scatter', type='time')
+        #time_data = from_numpy(time_data)
 
         # Merge all channels
         processed_data = np.concatenate((charge_data, time_data), axis=0)
@@ -88,11 +99,12 @@ class CNNmPMTDataset(H5Dataset):
 
         return data_dict
 
-    def from_data_to_image(self, hit_data):
+    def from_data_to_image(self, hit_data, rand_choice):
 
         hit_data = from_numpy(self.process_data(self.event_hit_pmts, hit_data))
-        # TODO: same transformation to q and t channels
-        # hit_data = du.apply_random_transformations(self.transforms, hit_data)
+
+        # TODO: Now applying same transformation to T and Q but only one at a time
+        hit_data = du.apply_random_transformations(self.transforms, hit_data, rand_choice)
 
         # Add padding
         if self.pad:
@@ -209,3 +221,47 @@ class CNNmPMTDataset(H5Dataset):
         pmt_time_data = self.process_data(self.event_hit_pmts, self.event_hit_times).flatten()
 
         return self.event_hit_pmts, pmt_charge_data, pmt_time_data
+
+    def event_plotter(self, data, mode, type):
+        """
+        Collapses all channels and plots the event data
+
+        :param data: ndarray (n_channels, 29, 40)
+        :param mode: str, scatter or heatmap
+        :param type: str, charge or time
+        :return: None
+        """
+        if type == 'charge':
+            cmap = 'inferno'
+            title = 'Event sum charge per mPMT (unrolled tank)'
+            collapsed_data = np.sum(data, axis=0)
+        elif type == 'time':
+            cmap = 'cividis'
+            title = 'Average time detection per mPMT (unrolled tank)'
+            collapsed_data = np.mean(data, axis=0)
+
+        plt.figure(figsize=(14, 8))
+
+        if mode == 'scatter':
+            coords = np.where(collapsed_data > 0.)   # Threshold
+            mpmt_charge = collapsed_data[coords]
+            x = coords[1]
+            y = coords[0]
+
+            plt.scatter(x, y, c=mpmt_charge, s=30, cmap=cmap, vmin=0)
+
+        elif mode == 'heatmap':
+            plt.pcolor(collapsed_data, cmap=cmap)
+            plt.axhline(10, color='w', linewidth=0.5)
+            plt.axhline(19, color='w', linewidth=0.5)
+            plt.axvline(15, color='w', linewidth=0.5)
+            plt.axvline(25, color='w', linewidth=0.5)
+
+        plt.yticks(np.arange(0, 30, 5))
+        plt.xticks(np.arange(0, 40, 5))
+        plt.xlabel(r'$x$')
+        plt.ylabel(r'$y$')
+        plt.title(title)
+        plt.colorbar()
+        plt.tight_layout()
+        plt.show()
