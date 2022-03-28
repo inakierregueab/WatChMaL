@@ -238,7 +238,7 @@ class CNNmPMTDataset(H5Dataset):
         elif type == 'time':
             cmap = 'cividis'
             title = 'Average time detection per mPMT (unrolled tank)'
-            collapsed_data = np.mean(data, axis=0)
+            collapsed_data = np.median(data, axis=0)
 
         plt.figure(figsize=(14, 8))
 
