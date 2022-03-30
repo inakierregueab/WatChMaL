@@ -107,7 +107,8 @@ class CNNmPMTDataset(H5Dataset):
         hit_data = from_numpy(self.process_data(self.event_hit_pmts, hit_data))
 
         # TODO: Now applying same transformation to T and Q but only one at a time
-        hit_data = du.apply_random_transformations(self.transforms, hit_data, rand_choice)
+        if self.transforms is not None:
+            hit_data = du.apply_random_transformations(self.transforms, hit_data, rand_choice)
 
         # Add padding
         if self.pad:
