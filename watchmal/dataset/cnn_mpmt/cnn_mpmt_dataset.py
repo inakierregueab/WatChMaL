@@ -242,7 +242,8 @@ class CNNmPMTDataset(H5Dataset):
         elif type == 'time':
             cmap = 'cividis'
             title = 'Average time detection per mPMT (unrolled tank)'
-            collapsed_data = np.median(data, axis=0)
+            # TODO: median not working for viz, try RMS
+            collapsed_data = np.mean(data, axis=0)
 
         plt.figure(figsize=(14, 8))
 
@@ -269,3 +270,13 @@ class CNNmPMTDataset(H5Dataset):
         plt.colorbar()
         plt.tight_layout()
         plt.show()
+
+    @staticmethod
+    def RMS(t):
+        # TODO: for viz or preprocessing
+        N = t.shape[0]
+        t_avg = np.expand_dims(np.mean(t, axis=0), axis=0)
+        t_rms = np.sqrt(np.sum(np.power(t - t_avg, 2), axis=0) / N)
+        t_rms = np.expand_dims(t_rms, axis=0)
+        return t_rms
+
