@@ -78,7 +78,10 @@ class CNNmPMTDataset(H5Dataset):
 
         data_dict = super().__getitem__(item)
 
-        rand_choice = random.randint(0, len(self.transforms))
+        if self.transforms is not None:
+            rand_choice = random.randint(0, len(self.transforms))
+        else:
+            rand_choice = 0
 
         charge_data = self.from_data_to_image(self.event_hit_charges, rand_choice)
         #charge_data = np.array(charge_data)
