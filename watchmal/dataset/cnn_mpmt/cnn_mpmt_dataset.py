@@ -45,16 +45,20 @@ class CNNmPMTDataset(H5Dataset):
         self.vertical_flip_mpmt_map = [6, 5, 4, 3, 2, 1, 0, 11, 10, 9, 8, 7, 15, 14, 13, 12, 17, 16, 18]
         ################
 
-    def process_data(self, hit_pmts, hit_data):
+    def process_data(self, hit_pmts, hit_data, data_type):
         """
         Returns event data from dataset associated with a specific index
         Args:
             hit_pmts                ... array of ids of hit pmts
             hid_data                ... array of data associated with hits
+            data_type               ... str specifying charge or time data
         
         Returns:
             data                    ... array of hits in cnn format
         """
+
+        hit_data = self.sample_scaling(hit_data, data_type)
+
         hit_mpmts = hit_pmts // pmts_per_mpmt   # Mapping each PMT hit to its correspondent mPMT
         hit_pmt_in_modules = hit_pmts % pmts_per_mpmt   # Mapping each PMT to a channel (position in its mPMT)
 
@@ -78,35 +82,46 @@ class CNNmPMTDataset(H5Dataset):
 
         data_dict = super().__getitem__(item)
 
+        # Fix same transformation for time and charge
+        rand_choice = self.fix_transformation()
+
+        # Build charge image
+        charge_image = self.from_data_to_image(self.event_hit_charges, rand_choice, data_type='c')
+
+        # Build time image
+        time_image = self.from_data_to_image(self.event_hit_times, rand_choice, data_type='t')
+
+        # Merge all channels
+        processed_image = np.concatenate((charge_image, time_image), axis=0)
+
+        data_dict["data"] = processed_image
+
+        """
+        To plot events: 
+
+        time_image = np.array(time_image)
+        charge_image = np.array(charge_image)
+        self.event_plotter(charge_image, mode='heatmap', type='charge')
+        self.event_plotter(time_image, mode='heatmap', type='time')
+        time_image = from_numpy(time_image)
+        charge_image = from_numpy(charge_image)
+        """
+        return data_dict
+
+    def fix_transformation(self):
         if self.transforms is not None:
             rand_choice = random.randint(0, len(self.transforms))
         else:
             rand_choice = 0
+        return rand_choice
 
-        charge_data = self.from_data_to_image(self.event_hit_charges, rand_choice)
-        #charge_data = np.array(charge_data)
-        #self.event_plotter(charge_data, mode='heatmap', type='charge')
-        #self.event_plotter(charge_data, mode='scatter', type='charge')
-        #charge_data = from_numpy(charge_data)
+    def from_data_to_image(self, hit_data, rand_choice, data_type='c'):
 
-        time_data = self.from_data_to_image(self.event_hit_times, rand_choice)
-        #time_data = np.array(time_data)
-        #self.event_plotter(time_data, mode='heatmap', type='time')
-        #self.event_plotter(time_data, mode='scatter', type='time')
-        #time_data = from_numpy(time_data)
+        # Build image with data
+        hit_data = from_numpy(self.process_data(self.event_hit_pmts, hit_data, data_type))
 
-        # Merge all channels
-        processed_data = np.concatenate((charge_data, time_data), axis=0)
-
-        data_dict["data"] = processed_data
-
-        return data_dict
-
-    def from_data_to_image(self, hit_data, rand_choice):
-
-        hit_data = from_numpy(self.process_data(self.event_hit_pmts, hit_data))
-
-        # TODO: Now applying same transformation to T and Q but only one at a time
+        # TODO: Applying a single transformation
+        # Perform transformation
         if self.transforms is not None:
             hit_data = du.apply_random_transformations(self.transforms, hit_data, rand_choice)
 
@@ -242,7 +257,6 @@ class CNNmPMTDataset(H5Dataset):
         elif type == 'time':
             cmap = 'cividis'
             title = 'Average time detection per mPMT (unrolled tank)'
-            # TODO: median not working for viz, try RMS
             collapsed_data = np.mean(data, axis=0)
 
         plt.figure(figsize=(14, 8))
@@ -271,12 +285,26 @@ class CNNmPMTDataset(H5Dataset):
         plt.tight_layout()
         plt.show()
 
-    @staticmethod
-    def RMS(t):
-        # TODO: for viz or preprocessing
-        N = t.shape[0]
-        t_avg = np.expand_dims(np.mean(t, axis=0), axis=0)
-        t_rms = np.sqrt(np.sum(np.power(t - t_avg, 2), axis=0) / N)
-        t_rms = np.expand_dims(t_rms, axis=0)
-        return t_rms
+    def sample_scaling(self, hit_array, data_type):
+        """
+        When joining channels Q+T they must be in the same range [0,1]. The chosen method is normalization, other
+        options like standardization, maximum normalization and unitary vector have been discarded.
+        """
+
+        # TODO: consider different scaling for Q and T (peak)
+        # TODO: instead of sample normalization use feature normalization (time out)?
+        if data_type == 'c':
+            max_value = np.max(self.event_hit_charges)
+            min_value = np.min(self.event_hit_charges)
+
+        elif data_type == 't':
+            max_value = np.max(self.event_hit_times)
+            min_value = np.min(self.event_hit_times)
+
+        # Normalize
+        normalized_array = (hit_array - min_value)/(max_value - min_value)
+
+        return normalized_array
+
+
 
