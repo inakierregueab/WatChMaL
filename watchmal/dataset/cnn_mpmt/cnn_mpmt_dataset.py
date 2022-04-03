@@ -290,21 +290,23 @@ class CNNmPMTDataset(H5Dataset):
         When joining channels Q+T they must be in the same range [0,1]. The chosen method is normalization, other
         options like standardization, maximum normalization and unitary vector have been discarded.
         """
-
-        # TODO: consider different scaling for Q and T (peak)
-        # TODO: instead of sample normalization use feature normalization (time out)?
+        # TODO: SAMPLE OR FEATURE SCALING / different scaling method for q and t?
         if data_type == 'c':
-            max_value = np.max(self.event_hit_charges)
-            min_value = np.min(self.event_hit_charges)
+            # max_value = np.max(self.event_hit_charges)
+            # min_value = np.min(self.event_hit_charges)
+            max_value = 90
+            # mean = 3
 
         elif data_type == 't':
             max_value = np.max(self.event_hit_times)
             min_value = np.min(self.event_hit_times)
+            max_value = 1700
+            # mean = 970
 
-        # Normalize
-        normalized_array = (hit_array - min_value)/(max_value - min_value)
+        #normalized_array = (hit_array - min_value)/(max_value - min_value)
+        scaled_array = (hit_array/max_value)
 
-        return normalized_array
+        return scaled_array
 
 
 
