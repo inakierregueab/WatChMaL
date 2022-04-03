@@ -204,7 +204,7 @@ class ClassifierEngine:
         # global training loop for multiple epochs
         while (floor(self.epoch) < epochs):
             if self.rank == 0:
-                print('Epoch', floor(self.epoch), 'Starting @', strftime("%Y-%m-%d %H:%M:%S", localtime()))
+                print('\nEpoch', floor(self.epoch), 'Starting @', strftime("%Y-%m-%d %H:%M:%S", localtime()))
             
             times = []
 
@@ -250,7 +250,7 @@ class ClassifierEngine:
                 if self.rank == 0 and self.iteration % report_interval == 0:
                     previous_iteration_time = iteration_time
                     iteration_time = time()
-                    print("... Iteration %d ... Epoch %1.2f ... Training Loss %1.3f ... Training Accuracy %1.3f ... Time Elapsed %1.3f ... Iteration Time %1.3f" %
+                    print("Training: ... Iteration %d ... Epoch %1.2f ... Training Loss %1.3f ... Training Accuracy %1.3f ... Time Elapsed %1.3f ... Iteration Time %1.3f" %
                           (self.iteration, self.epoch, res["loss"], res["accuracy"], iteration_time - start_time, iteration_time - previous_iteration_time))
                 
                 if self.epoch >= epochs:
@@ -269,7 +269,7 @@ class ClassifierEngine:
                 val_data = next(val_iter)
             except StopIteration:
                 del val_iter
-                print("Fetching new validation iterator...")
+                #print("Fetching new validation iterator...")
                 val_iter = iter(self.data_loaders["validation"])
                 val_data = next(val_iter)
 
@@ -304,9 +304,11 @@ class ClassifierEngine:
             val_metrics["accuracy"] = global_val_accuracy
             val_metrics["epoch"] = self.epoch
 
+            print("Validation: ... Val Loss %1.3f ... Val Accuracy %1.3f" % (val_metrics["loss"], val_metrics["accuracy"]))
+
             if val_metrics["loss"] < self.best_validation_loss:
                 self.best_validation_loss = val_metrics["loss"]
-                print('best validation loss so far!: {}'.format(self.best_validation_loss))
+                print('Best validation loss so far!: {}'.format(self.best_validation_loss))
                 self.save_state(best=True)
                 val_metrics["saved_best"] = 1
 
