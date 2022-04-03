@@ -6,12 +6,19 @@ num_val_batches: 32
 
 checkpointing: False
 
+early_stopping:
+  patience: 3
+  delta: 0
+
 data_loaders:
   train:
     split_key: train_idxs
     batch_size: 512
     num_workers: 4
-
+    transforms:
+      - horizontal_flip
+      - vertical_flip
+      - front_back_reflection
   validation:
     split_key: val_idxs
     batch_size: 512

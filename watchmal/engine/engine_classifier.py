@@ -206,8 +206,7 @@ class ClassifierEngine:
         val_iter = iter(self.data_loaders["validation"])
 
         # initialize the early_stopper object
-        # TODO: pass config
-        early_stopper = EarlyStopping(patience=3, delta=0)
+        early_stopper = EarlyStopping(**train_config.early_stopping)
 
         # global training loop for multiple epochs
         while (floor(self.epoch) < epochs):
