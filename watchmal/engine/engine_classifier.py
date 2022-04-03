@@ -25,6 +25,7 @@ import copy
 # WatChMaL imports
 from watchmal.dataset.data_utils import get_data_loader
 from watchmal.utils.logging_utils import CSVData
+from watchmal.engine.EarlyStopping import EarlyStopping
 
 class ClassifierEngine:
     def __init__(self, model, rank, gpu, dump_path):
@@ -67,6 +68,9 @@ class ClassifierEngine:
 
         self.criterion = nn.CrossEntropyLoss()
         self.softmax = nn.Softmax(dim=1)
+
+        # early stopper
+        self.early_stop = False
     
     def configure_optimizers(self, optimizer_config):
         """
@@ -201,6 +205,10 @@ class ClassifierEngine:
         # initialize the iterator over the validation set
         val_iter = iter(self.data_loaders["validation"])
 
+        # initialize the early_stopper object
+        # TODO: pass config
+        early_stopper = EarlyStopping(patience=3, delta=0)
+
         # global training loop for multiple epochs
         while (floor(self.epoch) < epochs):
             if self.rank == 0:
@@ -222,7 +230,7 @@ class ClassifierEngine:
                 
                 # run validation on given intervals
                 if self.iteration % val_interval == 0:
-                    self.validate(val_iter, num_val_batches, checkpointing)
+                    self.validate(val_iter, num_val_batches, checkpointing, early_stopper)
                 
                 # Train on batch
                 self.data = train_data['data']
@@ -252,15 +260,18 @@ class ClassifierEngine:
                     iteration_time = time()
                     print("Training: ... Iteration %d ... Epoch %1.2f ... Training Loss %1.3f ... Training Accuracy %1.3f ... Time Elapsed %1.3f ... Iteration Time %1.3f" %
                           (self.iteration, self.epoch, res["loss"], res["accuracy"], iteration_time - start_time, iteration_time - previous_iteration_time))
-                
+
                 if self.epoch >= epochs:
                     break
+
+            if self.early_stop:
+                break
         
         self.train_log.close()
         if self.rank == 0:
             self.val_log.close()
 
-    def validate(self, val_iter, num_val_batches, checkpointing):
+    def validate(self, val_iter, num_val_batches, checkpointing, early_stopper):
         # set model to eval mode
         self.model.eval()
         val_metrics = {"iteration": self.iteration, "loss": 0., "accuracy": 0., "saved_best": 0}
@@ -315,6 +326,10 @@ class ClassifierEngine:
             # Save the latest model if checkpointing
             if checkpointing:
                 self.save_state(best=False)
+
+            # TODO: in distributed?
+            early_stopper(val_metrics["loss"])
+            self.early_stop = early_stopper.early_stop
 
             self.val_log.record(val_metrics)
             self.val_log.write()
