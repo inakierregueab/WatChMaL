@@ -30,17 +30,24 @@ dataset = H5Dataset(h5_path, is_distributed=False)
 raw_h5_file = h5py.File(h5_path, "r")
 
 # Get event-hit mapping for selected events
-original_mapping = dataset.event_hits_index[train_idxs]
-data['event_hits_index'] = original_mapping - original_mapping[0]
-hits_shifted = np.append(data['event_hits_index'][1:], len(original_mapping))
-data['num_hits_per_event'] = hits_shifted - data['event_hits_index']
+data['event_hits_index'] = dataset.event_hits_index[train_idxs]
 
 # Add hit info (pmt, charge and time) and labels
+data['max_charge_per_event'] = []
+data['charge_sum_per_event'] = []
+data['max_time_per_event'] = []
+data['mean_time_per_event'] = []
+data['num_hits_per_event'] = []
 for idx in train_idxs:
     data['event_label'].append(dataset[idx]['labels'])
     data['hit_charge'] += list(dataset.event_hit_charges)
     data['hit_time'] += list(dataset.event_hit_times)
     data['hit_pmt'] += list(dataset.event_hit_pmts)
+    data['max_charge_per_event'].append(np.max(dataset.event_hit_charges))
+    data['charge_sum_per_event'].append(np.sum(dataset.event_hit_charges))
+    data['max_time_per_event'].append(np.max(dataset.event_hit_times))
+    data['mean_time_per_event'].append(np.mean(dataset.event_hit_times))
+    data['num_hits_per_event'].append(len(dataset.event_hit_pmts))
 
 electrons = sum(data['event_label'])
 num_events = len(data['event_label'])
@@ -69,24 +76,14 @@ for feature in h5_relevant_keys:
 for key in data.keys():
     data[key] = np.array(data[key])
 
-# Add total charge sum and time interval
-# TODO: re-do
-data['charge_sum'] = np.empty(0)
-data['time_intervals'] = np.empty(0)
-initial_hit = 0
-for final_hit in hits_shifted:
-    data['charge_sum'] = np.append(data['charge_sum'], np.sum(data['hit_charge'][initial_hit:final_hit]))
-    time_values = data['hit_time'][initial_hit:final_hit]
-    if len(time_values) == 0:   #TODO: outlier?
-        data['time_intervals'] = np.append(data['time_intervals'], 0)
-    else:
-        data['time_intervals'] = np.append(data['time_intervals'], np.max(time_values)-np.min(time_values))
-    initial_hit = final_hit
-
 dict_to_df = {}
 for key in data.keys():
     if key not in ['hit_charge', 'hit_time', 'hit_pmt', 'event_hits_index']:
         dict_to_df[key] = data[key]
+
+# Similar values in both subsets of indices (236k and 23k events)
+charge_normalizer = np.mean(data['max_charge_per_event'])   #90
+time_normalizer = np.mean(data['max_time_per_event'])       #1700
 
 events_df = pd.DataFrame(dict_to_df, columns=dict_to_df.keys())
 
@@ -122,18 +119,17 @@ def kde_plotter(events_df):
     axes[2, 0].set_ylabel('')
     axes[2, 0].set_xlabel('num_hits')
     axes[2, 0].legend()
-    events_df.groupby('event_label')['charge_sum'].plot.kde(ax=axes[2, 1])
+    events_df.groupby('event_label')['charge_sum_per_event'].plot.kde(ax=axes[2, 1])
     axes[2, 1].set_ylabel('')
     axes[2, 1].set_xlabel('charge_sum')
     axes[2, 1].legend()
-    events_df.groupby('event_label')['time_intervals'].plot.kde(ax=axes[2, 2])
+    events_df.groupby('event_label')['mean_time_per_event'].plot.kde(ax=axes[2, 2])
     axes[2, 2].set_ylabel('')
     axes[2, 2].set_xlabel('time_interval')
     axes[2, 2].legend()
     # plt.show(block=False)
     plt.show()
 
-# TODO: error with charge sum and time intervals for electrons?
 kde_plotter(events_df)
 
 # Feature correlation
