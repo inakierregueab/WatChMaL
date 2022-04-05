@@ -74,7 +74,10 @@ class CNNmPMTDataset(H5Dataset):
 
         # collapse arrays if desired
         if self.collapse_arrays:
-            data = np.expand_dims(np.sum(data, 0), 0)
+            if data_type == 'c':
+                data = np.expand_dims(np.sum(data, 0), 0)
+            elif data_type == 't':
+                data = np.expand_dims(np.mean(data, 0), 0)
 
         return data
 
@@ -120,11 +123,12 @@ class CNNmPMTDataset(H5Dataset):
         # Build image with data
         hit_data = from_numpy(self.process_data(self.event_hit_pmts, hit_data, data_type))
 
-        # TODO: Applying a single transformation
+        # TODO: Now only applying a single transformation
         # Perform transformation
         if self.transforms is not None:
             hit_data = du.apply_random_transformations(self.transforms, hit_data, rand_choice)
 
+        # TODO: review transformations and padding when ussing collapsed arrays
         # Add padding
         if self.pad:
             hit_data = self.mpmtPadding(hit_data)
@@ -298,8 +302,8 @@ class CNNmPMTDataset(H5Dataset):
             # mean = 3
 
         elif data_type == 't':
-            max_value = np.max(self.event_hit_times)
-            min_value = np.min(self.event_hit_times)
+            # max_value = np.max(self.event_hit_times)
+            # min_value = np.min(self.event_hit_times)
             max_value = 1700
             # mean = 970
 
