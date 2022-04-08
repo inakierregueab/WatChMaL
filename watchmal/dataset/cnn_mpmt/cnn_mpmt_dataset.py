@@ -21,7 +21,7 @@ pmts_per_mpmt = 19
 
 
 class CNNmPMTDataset(H5Dataset):
-    def __init__(self, h5file, mpmt_positions_file, is_distributed, transforms=None, collapse_arrays=False, pad=False):
+    def __init__(self, h5file, mpmt_positions_file, is_distributed, transforms=None, collapse_arrays=False, pad=False, mode='both'):
         """
         Args:
             h5_path             ... path to h5 dataset file
@@ -43,6 +43,12 @@ class CNNmPMTDataset(H5Dataset):
 
         self.horizontal_flip_mpmt_map = [0, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 12, 17, 16, 15, 14, 13, 18]
         self.vertical_flip_mpmt_map = [6, 5, 4, 3, 2, 1, 0, 11, 10, 9, 8, 7, 15, 14, 13, 12, 17, 16, 18]
+
+        self.mode = mode
+        self.mu_q = np.mean(self.hdf5_hit_charge[:1000000000])
+        self.mu_t = np.mean(self.hdf5_hit_time[:1000000000])
+        self.std_q = np.std(self.hdf5_hit_charge[:1000000000])
+        self.std_t = np.std(self.hdf5_hit_time[:1000000000])
         ################
 
     def process_data(self, hit_pmts, hit_data, data_type):
@@ -57,7 +63,7 @@ class CNNmPMTDataset(H5Dataset):
             data                    ... array of hits in cnn format
         """
 
-        hit_data = self.sample_scaling(hit_data, data_type)
+        hit_data = self.feature_scaling(hit_data, data_type)
 
         hit_mpmts = hit_pmts // pmts_per_mpmt   # Mapping each PMT hit to its correspondent mPMT
         hit_pmt_in_modules = hit_pmts % pmts_per_mpmt   # Mapping each PMT to a channel (position in its mPMT)
@@ -72,13 +78,6 @@ class CNNmPMTDataset(H5Dataset):
         barrel_data = data[:, self.barrel_rows, :]
         data[:, self.barrel_rows, :] = barrel_data[barrel_map_array_idxs, :, :]
 
-        # collapse arrays if desired
-        if self.collapse_arrays:
-            if data_type == 'c':
-                data = np.expand_dims(np.sum(data, 0), 0)
-            elif data_type == 't':
-                data = np.expand_dims(np.mean(data, 0), 0)
-
         return data
 
     def __getitem__(self, item):
@@ -89,13 +88,20 @@ class CNNmPMTDataset(H5Dataset):
         rand_choice = self.fix_transformation()
 
         # Build charge image
-        charge_image = self.from_data_to_image(self.event_hit_charges, rand_choice, data_type='c')
+        if 'charge' in self.mode:
+            charge_image = self.from_data_to_image(self.event_hit_charges, rand_choice, data_type='c')
 
         # Build time image
-        time_image = self.from_data_to_image(self.event_hit_times, rand_choice, data_type='t')
+        if 'time' in self.mode:
+            time_image = self.from_data_to_image(self.event_hit_times, rand_choice, data_type='t')
 
         # Merge all channels
-        processed_image = np.concatenate((charge_image, time_image), axis=0)
+        if 'time' and 'charge' in self.mode:
+            processed_image = np.concatenate((charge_image, time_image), axis=0)
+        elif 'charge' in self.mode:
+            processed_image = charge_image
+        else:
+            processed_image = time_image
 
         data_dict["data"] = processed_image
 
@@ -128,11 +134,16 @@ class CNNmPMTDataset(H5Dataset):
         if self.transforms is not None:
             hit_data = du.apply_random_transformations(self.transforms, hit_data, rand_choice)
 
-        # TODO: review transformations and padding when ussing collapsed arrays
         # Add padding
         if self.pad:
             hit_data = self.mpmtPadding(hit_data)
 
+        # collapse arrays if desired
+        if self.collapse_arrays:
+            mean_channel = np.expand_dims(np.mean(np.array(hit_data), 0), 0)
+            std_channel = np.expand_dims(np.std(np.array(hit_data), 0), 0)
+            hit_data = np.concatenate((mean_channel, std_channel), 0)
+            hit_data = from_numpy(hit_data)
         return hit_data
 
     def horizontal_flip(self, data):
@@ -245,20 +256,20 @@ class CNNmPMTDataset(H5Dataset):
 
         return self.event_hit_pmts, pmt_charge_data, pmt_time_data
 
-    def event_plotter(self, data, mode, type):
+    def event_plotter(self, data, mode, data_type):
         """
         Collapses all channels and plots the event data
 
         :param data: ndarray (n_channels, 29, 40)
         :param mode: str, scatter or heatmap
-        :param type: str, charge or time
+        :param data_type: str, charge or time
         :return: None
         """
-        if type == 'charge':
+        if data_type == 'charge':
             cmap = 'inferno'
             title = 'Event sum charge per mPMT (unrolled tank)'
             collapsed_data = np.sum(data, axis=0)
-        elif type == 'time':
+        elif data_type == 'time':
             cmap = 'cividis'
             title = 'Average time detection per mPMT (unrolled tank)'
             collapsed_data = np.mean(data, axis=0)
@@ -289,28 +300,21 @@ class CNNmPMTDataset(H5Dataset):
         plt.tight_layout()
         plt.show()
 
-    def sample_scaling(self, hit_array, data_type):
+    def feature_scaling(self, hit_array, data_type):
         """
-        When joining channels Q+T they must be in the same range [0,1]. The chosen method is normalization, other
-        options like standardization, maximum normalization and unitary vector have been discarded.
+        When joining channels Q+T they must be in the same range [0,1]. The chosen method is standarization.
         """
-        # TODO: SAMPLE OR FEATURE SCALING / different scaling method for q and t?
+        # Constants computed with 1 billion hits
         if data_type == 'c':
-            # max_value = np.max(self.event_hit_charges)
-            # min_value = np.min(self.event_hit_charges)
-            max_value = 90
-            # mean = 3
+            mu = self.mu_q
+            std = self.std_q
 
         elif data_type == 't':
-            # max_value = np.max(self.event_hit_times)
-            # min_value = np.min(self.event_hit_times)
-            max_value = 1700
-            # mean = 970
+            mu = self.mu_t
+            std = self.std_t
 
-        #normalized_array = (hit_array - min_value)/(max_value - min_value)
-        scaled_array = (hit_array/max_value)
-
-        return scaled_array
+        standarized_array = (hit_array - mu)/std
+        return standarized_array
 
 
 

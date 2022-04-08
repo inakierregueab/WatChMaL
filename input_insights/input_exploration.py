@@ -29,6 +29,17 @@ h5_path = '/data/neutrinos/IWCD_Data/IWCD_mPMT_Short_emgp0_E0to1000MeV_digihits.
 dataset = H5Dataset(h5_path, is_distributed=False)
 raw_h5_file = h5py.File(h5_path, "r")
 
+# Get scaling constants
+mu_q = np.mean(dataset.hdf5_hit_charge[:1000000000])
+mu_t = np.mean(dataset.hdf5_hit_time[:1000000000])
+std_q = np.std(dataset.hdf5_hit_charge[:1000000000])
+std_t = np.std(dataset.hdf5_hit_time[:1000000000])
+print('')
+print(mu_q)
+print(mu_t)
+print(std_q)
+print(std_t)
+
 # Get event-hit mapping for selected events
 data['event_hits_index'] = dataset.event_hits_index[train_idxs]
 
@@ -55,7 +66,7 @@ electrons = sum(data['event_label'])
 num_events = len(data['event_label'])
 num_hits = len(data['hit_pmt'])
 gammas = num_events-electrons
-print(f'Number of events: {num_events}')
+print(f'\nNumber of events: {num_events}')
 print(f'Number of hits: {num_hits}')
 print(f'Number of 1\'s (e): {electrons}, percentage: {(electrons/num_events)*100} %')
 print(f'Number of 0\'s (gamma): {gammas}, percentage: {(gammas/num_events)*100} %')
