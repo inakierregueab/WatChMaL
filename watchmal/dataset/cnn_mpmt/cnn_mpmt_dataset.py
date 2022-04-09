@@ -45,10 +45,10 @@ class CNNmPMTDataset(H5Dataset):
         self.vertical_flip_mpmt_map = [6, 5, 4, 3, 2, 1, 0, 11, 10, 9, 8, 7, 15, 14, 13, 12, 17, 16, 18]
 
         self.mode = mode
-        self.mu_q = np.mean(self.hdf5_hit_charge[:1000000000])
-        self.mu_t = np.mean(self.hdf5_hit_time[:1000000000])
-        self.std_q = np.std(self.hdf5_hit_charge[:1000000000])
-        self.std_t = np.std(self.hdf5_hit_time[:1000000000])
+        self.mu_q = 2.4899564   #np.mean(self.hdf5_hit_charge[:1000000000])
+        self.mu_t = 975.42676   #np.mean(self.hdf5_hit_time[:1000000000])
+        self.std_q = 6.9522057  #np.std(self.hdf5_hit_charge[:1000000000])
+        self.std_t = 47.54492   #np.std(self.hdf5_hit_time[:1000000000])
         ################
 
     def process_data(self, hit_pmts, hit_data, data_type):
