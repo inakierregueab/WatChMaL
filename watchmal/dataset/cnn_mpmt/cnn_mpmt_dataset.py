@@ -96,7 +96,7 @@ class CNNmPMTDataset(H5Dataset):
             time_image = self.from_data_to_image(self.event_hit_times, rand_choice, data_type='t')
 
         # Merge all channels
-        if 'time' and 'charge' in self.mode:
+        if ('time' in self.mode) and ('charge' in self.mode):
             processed_image = np.concatenate((charge_image, time_image), axis=0)
         elif 'charge' in self.mode:
             processed_image = charge_image
