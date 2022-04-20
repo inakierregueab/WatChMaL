@@ -97,7 +97,7 @@ class CNNmPMTDataset(H5Dataset):
 
         # Merge all channels
         if ('time' in self.mode) and ('charge' in self.mode):
-            processed_image = np.concatenate((charge_image, time_image), axis=0)
+            processed_image = torch.cat((charge_image, time_image), 0)
         elif 'charge' in self.mode:
             processed_image = charge_image
         else:
@@ -140,10 +140,9 @@ class CNNmPMTDataset(H5Dataset):
 
         # collapse arrays if desired
         if self.collapse_arrays:
-            mean_channel = np.expand_dims(np.mean(np.array(hit_data), 0), 0)
-            std_channel = np.expand_dims(np.std(np.array(hit_data), 0), 0)
-            hit_data = np.concatenate((mean_channel, std_channel), 0)
-            hit_data = from_numpy(hit_data)
+            mean_channel = torch.mean(hit_data, 0, keepdim=True)
+            std_channel = torch.std(hit_data, 0, keepdim=True)
+            hit_data = torch.cat((mean_channel, std_channel), 0)
         return hit_data
 
     def horizontal_flip(self, data):
