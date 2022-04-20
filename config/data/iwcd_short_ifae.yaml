@@ -1,3 +1,3 @@
-split_path: /home/ierregue/ssh_tunel/data/IWCD_mPMT_Short_2_class_idxs_14_files.npz
+split_path: /home/ierregue/ssh_tunel/data/IWCD_mPMT_Short_2_class_idxs_debug_files.npz
 dataset:
   h5file: /data/neutrinos/IWCD_Data/IWCD_mPMT_Short_emgp0_E0to1000MeV_digihits.h5

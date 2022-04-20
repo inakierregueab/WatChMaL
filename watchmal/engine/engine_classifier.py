@@ -206,14 +206,13 @@ class ClassifierEngine:
         val_iter = iter(self.data_loaders["validation"])
 
         # initialize the early_stopper object
-        early_stopper = EarlyStopping(**train_config.early_stopping)
+        #early_stopper = EarlyStopping(**train_config.early_stopping)
 
         # global training loop for multiple epochs
         while (floor(self.epoch) < epochs):
             if self.rank == 0:
                 print('\nEpoch', floor(self.epoch), 'Starting @', strftime("%Y-%m-%d %H:%M:%S", localtime()))
-            
-            times = []
+
 
             start_time = time()
             iteration_time = start_time
@@ -229,7 +228,7 @@ class ClassifierEngine:
                 
                 # run validation on given intervals
                 if self.iteration % val_interval == 0:
-                    self.validate(val_iter, num_val_batches, checkpointing, early_stopper)
+                    self.validate(val_iter, num_val_batches, checkpointing, early_stopper=None)
                 
                 # Train on batch
                 self.data = train_data['data']
@@ -327,8 +326,8 @@ class ClassifierEngine:
                 self.save_state(best=False)
 
             # TODO: in distributed?
-            early_stopper(val_metrics["loss"])
-            self.early_stop = early_stopper.early_stop
+            #early_stopper(val_metrics["loss"])
+            #self.early_stop = early_stopper.early_stop
 
             self.val_log.record(val_metrics)
             self.val_log.write()
