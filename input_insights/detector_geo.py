@@ -30,7 +30,7 @@ ax = plt.axes(projection="3d")
 ax.scatter3D(positions[:,2], positions[:,0], positions[:,1], color="royalblue", s=1)
 plt.title("PMTs positions", size=20)
 plt.tight_layout()
-plt.show()
+plt.show(block=False)
 
 
 #    UNFOLD 3D MPMTS IN A 2D IMAGE
@@ -46,22 +46,22 @@ y_barrel = y[barrel_ids]
 z_barrel = z[barrel_ids]
 phi = np.arctan2(z_barrel, x_barrel)
 plt.figure(figsize=(22, 5))
-plt.scatter(phi, y_barrel, s =0.5)
-plt.show()
+plt.scatter(phi, y_barrel, s=0.5)
+plt.show(block=False)
 
 top_ids = np.where(y >= (max(y)-30))[0]
 z_top = z[top_ids]
 y_top = x[top_ids]
-plt.scatter(x_top, y_top, s =0.5)
+plt.scatter(z_top, y_top, s =0.5)
 plt.show()
 
 bot_ids = np.where(y <= (min(y)+30))[0]
 z_bot = z[bot_ids]
 y_bot = x[bot_ids]
-plt.scatter(x_bot, y_bot, s =0.5)
-plt.show()
+plt.scatter(z_bot, y_bot, s =0.5)
+plt.show(block=False)
 
-x_new = np.concatenate((np.arctan2(x_barrel, z_barrel),x_bot,x_top))
-y_new = np.concatenate((y_barrel,y_bot,y_top))
+y_new = np.concatenate((np.arctan2(x_barrel, z_barrel),y_bot,y_top))
+x_new = np.concatenate((y_barrel,z_bot,z_top))
 plt.scatter(x_new, y_new, s=0.5)
-plt.show()
+plt.show(block=False)
