@@ -87,21 +87,13 @@ class CNNmPMTDataset(H5Dataset):
         # Fix same transformation for time and charge
         rand_choice = self.fix_transformation()
 
-        # Build charge image
-        if 'charge' in self.mode:
-            charge_image = self.from_data_to_image(self.event_hit_charges, rand_choice, data_type='c')
+        # Build charge and time images
+        charge_image = self.from_data_to_image(self.event_hit_charges, rand_choice, data_type='c')
+        time_image = self.from_data_to_image(self.event_hit_times, rand_choice, data_type='t')
 
-        # Build time image
-        if 'time' in self.mode:
-            time_image = self.from_data_to_image(self.event_hit_times, rand_choice, data_type='t')
-
-        # Merge all channels
-        if ('time' in self.mode) and ('charge' in self.mode):
-            processed_image = torch.cat((charge_image, time_image), 0)
-        elif 'charge' in self.mode:
-            processed_image = charge_image
-        else:
-            processed_image = time_image
+        # Arrange charge channels according to time (first PMT activated in mPMT is in the first channel)
+        t_sorted, t_indices = torch.sort(time_image, dim=0)
+        processed_image = torch.zeros_like(charge_image, dtype=charge_image.dtype).scatter_(dim=0, index=t_indices.sort(dim=0)[1], src=charge_image)
 
         data_dict["data"] = processed_image
 
