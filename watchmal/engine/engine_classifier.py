@@ -257,7 +257,7 @@ class ClassifierEngine:
                     previous_iteration_time = iteration_time
                     iteration_time = time()
                     print("Training: ... Iteration %d ... Epoch %1.2f ... Training Loss %1.3f ... Training Accuracy %1.3f ... Time Elapsed %1.3f ... Iteration Time %1.3f" %
-                          (self.iteration, self.epoch, res["loss"], res["accuracy"], iteration_time - start_time, iteration_time - previous_iteration_time))
+                           (self.iteration, self.epoch, res["loss"], res["accuracy"], iteration_time - start_time, iteration_time - previous_iteration_time))
 
                 if self.epoch >= epochs:
                     break
