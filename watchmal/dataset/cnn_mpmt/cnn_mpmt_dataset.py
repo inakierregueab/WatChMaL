@@ -138,9 +138,8 @@ class CNNmPMTDataset(H5Dataset):
         if self.pad:
             hit_data = self.mpmtPadding(hit_data)
 
-        # TODO: modified to Q+Ts
-        # collapse arrays if desired
-        if self.collapse_arrays and data_type == 't':
+        # collapse arrays if desired, for Q+Ts model add: and data_type == 't'
+        if self.collapse_arrays:
             mean_channel = torch.mean(hit_data, 0, keepdim=True)
             std_channel = torch.std(hit_data, 0, keepdim=True)
             hit_data = torch.cat((mean_channel, std_channel), 0)
