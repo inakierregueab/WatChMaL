@@ -21,7 +21,8 @@ pmts_per_mpmt = 19
 
 
 class CNNmPMTDataset(H5Dataset):
-    def __init__(self, h5file, mpmt_positions_file, is_distributed, transforms=None, collapse_arrays=False, pad=False, mode='both'):
+    def __init__(self, h5file, mpmt_positions_file, is_distributed, transforms=None, collapse_arrays=False, pad=False,
+                 mode='both', scaling=False):
         """
         Args:
             h5_path             ... path to h5 dataset file
@@ -45,6 +46,8 @@ class CNNmPMTDataset(H5Dataset):
         self.vertical_flip_mpmt_map = [6, 5, 4, 3, 2, 1, 0, 11, 10, 9, 8, 7, 15, 14, 13, 12, 17, 16, 18]
 
         self.mode = mode
+
+        self.scaling = scaling
         self.mu_q = 2.4899564   #np.mean(self.hdf5_hit_charge[:1000000000])
         self.mu_t = 975.42676   #np.mean(self.hdf5_hit_time[:1000000000])
         self.std_q = 6.9522057  #np.std(self.hdf5_hit_charge[:1000000000])
@@ -62,8 +65,8 @@ class CNNmPMTDataset(H5Dataset):
         Returns:
             data                    ... array of hits in cnn format
         """
-
-        hit_data = self.feature_scaling(hit_data, data_type)
+        if self.scaling:
+            hit_data = self.feature_scaling(hit_data, data_type)
 
         hit_mpmts = hit_pmts // pmts_per_mpmt   # Mapping each PMT hit to its correspondent mPMT
         hit_pmt_in_modules = hit_pmts % pmts_per_mpmt   # Mapping each PMT to a channel (position in its mPMT)
