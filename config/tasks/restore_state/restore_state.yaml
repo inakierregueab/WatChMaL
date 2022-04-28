@@ -1,1 +1,1 @@
-weight_file: '/path/to/outputs/ClassifierBEST.pth'
+weight_file: '/home/ierregue/ssh_tunel/2class_bm/outputs/DistributedDataParallelBEST.pth'
