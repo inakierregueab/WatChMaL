@@ -134,9 +134,7 @@ class ClassifierEngine:
             data = self.data.to(self.device)
             labels = self.labels.to(self.device)
 
-            model_out = self.model(data)
-            
-            softmax = self.softmax(model_out)
+            model_out,  softmax = self.model(data)
             predicted_labels = torch.argmax(model_out, dim=-1)
 
             result = {'predicted_labels': predicted_labels,

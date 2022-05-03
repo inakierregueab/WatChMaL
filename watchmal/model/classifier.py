@@ -1,5 +1,6 @@
 import torch.nn as nn
 from hydra.utils import instantiate
+import torch.nn.functional as F
 
 
 class Classifier(nn.Module):
@@ -13,11 +14,13 @@ class Classifier(nn.Module):
             "num_inputs": feature_extractor.num_output_channels
         }
         self.classification_network = instantiate(classification_network, **classification_kwargs)
+        self.softmax = nn.Softmax(dim=1)
 
     def forward(self, x):
         x = self.feature_extractor(x)
         x = self.classification_network(x)
-        return x
+        p = self.softmax(x)
+        return x, p
 
 
 class ResNetFullyConnected(nn.Module):
@@ -30,6 +33,7 @@ class ResNetFullyConnected(nn.Module):
         self.relu = nn.ReLU(inplace=True)
 
     def forward(self, x):
+        #x = F.dropout(x p=0.2)
         x = self.relu(self.cl_fc1(x))
         x = self.relu(self.cl_fc2(x))
         x = self.relu(self.cl_fc3(x))
