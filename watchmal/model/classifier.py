@@ -32,12 +32,20 @@ class ResNetFullyConnected(nn.Module):
         self.cl_fc4 = nn.Linear(int(num_inputs // 8), num_classes)
         self.relu = nn.ReLU(inplace=True)
 
+        self.p = 0.1
+        self.dropout = nn.Dropout(self.p)
+
     def forward(self, x):
-        #x = F.dropout(x p=0.2)
+        x = self.dropout(x)
         x = self.relu(self.cl_fc1(x))
+        x = self.dropout(x)
         x = self.relu(self.cl_fc2(x))
+        x = self.dropout(x)
         x = self.relu(self.cl_fc3(x))
+        x = self.dropout(x)
         x = self.cl_fc4(x)
+        # TODO: dropout between last and softmax?
+        #x = self.dropout(x)
         return x
 
 

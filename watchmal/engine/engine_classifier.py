@@ -116,7 +116,7 @@ class ClassifierEngine:
         
         return global_metric_dict
 
-    def forward(self, train=True):
+    def forward(self, train=True, mc_dropout=False, fwd_passes=None):
         """
         Compute predictions and metrics for a batch of data
 
@@ -134,12 +134,32 @@ class ClassifierEngine:
             data = self.data.to(self.device)
             labels = self.labels.to(self.device)
 
-            model_out,  softmax = self.model(data)
+            # Initialize results dict
+            result = {}
+
+            model_out, softmax = self.model(data)
+
+            if mc_dropout:
+                probs = torch.unsqueeze(softmax, 2)
+                raw_output = torch.unsqueeze(model_out, 2)
+
+                for i in range(fwd_passes-1):
+                    model_out, softmax = self.model(data)
+                    probs = torch.cat((probs, torch.unsqueeze(softmax, 2)), 2)
+                    raw_output = torch.cat((raw_output, torch.unsqueeze(model_out, 2)), 2)
+
+                # TODO: uncertainty before or after softmax?
+                softmax = torch.mean(probs, 2)
+                model_out = torch.mean(raw_output, 2)
+                uncertainty = torch.std(probs, 2)
+
+                result['uncertainty'] = uncertainty
+
             predicted_labels = torch.argmax(model_out, dim=-1)
 
-            result = {'predicted_labels': predicted_labels,
-                      'softmax': softmax,
-                      'raw_pred_labels': model_out}
+            result['predicted_labels'] = predicted_labels
+            result['softmax'] = softmax
+            result['raw_pred_labels'] = model_out
 
             self.loss = self.criterion(model_out, labels)
             accuracy = (predicted_labels == labels).sum().item() / float(predicted_labels.nelement())
@@ -351,7 +371,10 @@ class ClassifierEngine:
         """
         print("evaluating in directory: ", self.dirpath)
 
-        
+        # MC dropout parameters
+        self.mc_dropout = test_config.mc_dropout
+        self.fwd_passes = test_config.fwd_passes
+
         # Variables to output at the end
         eval_loss = 0.0
         eval_acc = 0.0
@@ -362,9 +385,14 @@ class ClassifierEngine:
             
             # Set the model to evaluation mode
             self.model.eval()
-            
+
+            # Enable Dropout in evaluation
+            if self.mc_dropout:
+                print(f'\nEvaluation with MC Dropout, forward passes: {self.fwd_passes}')
+                self.enable_dropout(self.model)
+
             # Variables for the confusion matrix
-            loss, accuracy, indices, labels, predictions, softmaxes= [],[],[],[],[],[]
+            loss, accuracy, indices, labels, predictions, softmaxes, uncertainties = [],[],[],[],[],[],[]
             
             # Extract the event data and label from the DataLoader iterator
             for it, eval_data in enumerate(self.data_loaders["test"]):
@@ -376,7 +404,7 @@ class ClassifierEngine:
                 eval_indices = eval_data['indices']
                 
                 # Run the forward procedure and output the result
-                result = self.forward(train=False)
+                result = self.forward(train=False, mc_dropout=self.mc_dropout, fwd_passes=self.fwd_passes)
 
                 eval_loss += result['loss']
                 eval_acc  += result['accuracy']
@@ -386,6 +414,9 @@ class ClassifierEngine:
                 labels.extend(self.labels.numpy())
                 predictions.extend(result['predicted_labels'].detach().cpu().numpy())
                 softmaxes.extend(result["softmax"].detach().cpu().numpy())
+
+                if self.mc_dropout:
+                    uncertainties.extend(result["uncertainty"].detach().cpu().numpy())
            
                 print("eval_iteration : " + str(it) + " eval_loss : " + str(result["loss"]) + " eval_accuracy : " + str(result["accuracy"]))
             
@@ -404,8 +435,9 @@ class ClassifierEngine:
         labels      = np.array(labels)
         predictions = np.array(predictions)
         softmaxes   = np.array(softmaxes)
+        uncertainties = np.array(uncertainties)
         
-        local_eval_results_dict = {"indices":indices, "labels":labels, "predictions":predictions, "softmaxes":softmaxes}
+        local_eval_results_dict = {"indices":indices, "labels":labels, "predictions":predictions, "softmaxes":softmaxes, "uncertainties":uncertainties}
 
         if self.is_distributed:
             # Gather results from all processes
@@ -420,6 +452,7 @@ class ClassifierEngine:
                 labels      = np.array(global_eval_results_dict["labels"].cpu())
                 predictions = np.array(global_eval_results_dict["predictions"].cpu())
                 softmaxes   = np.array(global_eval_results_dict["softmaxes"].cpu())
+                uncertainties = np.array(global_eval_results_dict["uncertainties"].cpu())
         
         if self.rank == 0:
 #            print("Sorting Outputs...")
@@ -431,6 +464,8 @@ class ClassifierEngine:
             np.save(self.dirpath + "labels.npy", labels)#[sorted_indices])
             np.save(self.dirpath + "predictions.npy", predictions)#[sorted_indices])
             np.save(self.dirpath + "softmax.npy", softmaxes)#[sorted_indices])
+            if self.mc_dropout:
+                np.save(self.dirpath + "uncertainties.npy", uncertainties)
 
             # Compute overall evaluation metrics
             val_iterations = np.sum(local_eval_metrics_dict["eval_iterations"])
@@ -439,6 +474,13 @@ class ClassifierEngine:
 
             print("\nAvg eval loss : " + str(val_loss/val_iterations),
                   "\nAvg eval acc : "  + str(val_acc/val_iterations))
+
+
+    def enable_dropout(self, model):
+        """ Function to enable the dropout layers during test-time """
+        for m in model.modules():
+            if m.__class__.__name__.startswith('Dropout'):
+                m.train()
         
     # ========================================================================
     # Saving and loading models
