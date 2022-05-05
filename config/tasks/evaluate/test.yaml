@@ -1,3 +1,6 @@
+mc_dropout: false
+fwd_passes: 4
+
 data_loaders:
   test:
     split_key: test_idxs
