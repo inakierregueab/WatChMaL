@@ -46,7 +46,7 @@ class ClassifierEngine:
         self.device = torch.device(gpu)
 
         # TODO: print model summary
-        #summary(self.model, (19, 29, 60))
+        #summary(self.model, (38, 29, 60))
 
         # Setup the parameters to save given the model type
         if isinstance(self.model, DDP):

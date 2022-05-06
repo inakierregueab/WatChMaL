@@ -47,6 +47,7 @@ class BasicBlock(nn.Module):
         identity = x
 
         #TODO: Review dropout ordering in basic block, BN confussion
+
         out = self.cdropout(x)
         out = self.conv1(out)
         out = self.bn1(out)
@@ -68,7 +69,7 @@ class BasicBlock(nn.Module):
 class Bottleneck(nn.Module):
     expansion = 4
 
-    def __init__(self, inplanes, planes, stride=1, downsample=None):
+    def __init__(self, inplanes, planes, bb_dropout, stride=1, downsample=None):
         super(Bottleneck, self).__init__()
 
         self.conv1 = conv1x1(inplanes, planes)
@@ -89,16 +90,20 @@ class Bottleneck(nn.Module):
         self.relu = nn.ReLU(inplace=True)
         self.downsample = downsample
         self.stride = stride
+        self.cdropout = nn.Dropout2d(p=bb_dropout)
 
     def forward(self, x):
         identity = x
 
-        out = self.conv1(x)
+        out = self.cdropout(x)
+        out = self.conv1(out)
         out = self.bn1(out)
         out = self.relu(out)
+        out = self.cdropout(out)
         out = self.conv2(out)
         out = self.bn2(out)
         out = self.relu(out)
+        out = self.cdropout(out)
         out = self.conv3(out)
         out = self.bn3(out)
 
@@ -112,8 +117,6 @@ class Bottleneck(nn.Module):
 
 
 class ResNet(nn.Module):
-
-    # TODO: dropout only passed to BasicBlock, need for more implementations, model.summary()?
 
     def __init__(self, block, layers, num_input_channels, num_output_channels, bb_dropout, zero_init_residual=False):
 
