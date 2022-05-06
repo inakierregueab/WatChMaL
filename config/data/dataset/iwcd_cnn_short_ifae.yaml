@@ -1,6 +1,6 @@
 _target_: watchmal.dataset.cnn_mpmt.cnn_mpmt_dataset.CNNmPMTDataset
 mpmt_positions_file: /data/neutrinos/IWCD_Data/IWCDshort_mPMT_image_positions.npz
 mode: [charge, time]
-collapse_arrays: True
+collapse_arrays: False
 pad: True
 scaling: True
