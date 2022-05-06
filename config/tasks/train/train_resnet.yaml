@@ -6,6 +6,10 @@ num_val_batches: 32
 
 checkpointing: False
 
+early_stopping:
+  patience: 50
+  delta: 0
+
 data_loaders:
   train:
     split_key: train_idxs

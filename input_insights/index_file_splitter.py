@@ -12,13 +12,12 @@ def natural_keys(text):
 
 # define which files of events are included in test / validation / training split
 # the same split is done for each particle type
-# TODO: fix ratio of splitting (70/10/20)
 test_files_start = 0
-test_files_stop = test_files_start + 2     # first 400 files are for test set
+test_files_stop = test_files_start+50 # first 400 files are for test set
 val_files_start = test_files_stop
-val_files_stop = val_files_start + 1   # next 100 files are for validation set
+val_files_stop = val_files_start+12 # next 100 files are for validation set
 train_files_start = val_files_stop
-train_files_stop = 7     # all remaining files are for training set
+train_files_stop = 500
 
 # define which particle labels to include
 labels = (0, 1)     # (photon, electron)
@@ -55,7 +54,7 @@ print(len(all_indices))
 print(len(set(all_indices)))
 
 # export
-np.savez('IWCD_mPMT_Short_2_class_idxs_14_files.npz', **split_idxs)
+np.savez('/home/ierregue/ssh_tunel/data/IWCD_mPMT_Short_2_class_idxs_xps.npz', **split_idxs)
 
 splitting = np.load('IWCD_mPMT_Short_2_class_idxs_14_files.npz')
 

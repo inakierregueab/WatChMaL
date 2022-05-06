@@ -54,7 +54,7 @@ def disp_learn_hist(location, title=None, losslim=None, axis=None, show=True):
     # added these four lines
     lines  = line11 + line12 + line21 + line22
     labels = [l.get_label() for l in lines]
-    leg    = ax2.legend(lines, labels, fontsize=16, loc=5, numpoints=1)
+    leg    = ax2.legend(lines, labels, fontsize=14, loc=3, numpoints=1)
     leg_frame = leg.get_frame()
     leg_frame.set_facecolor('white')
 
@@ -173,7 +173,7 @@ def disp_learn_hist_smoothed(location, losslim=None, window_train=400, window_va
 
     if show:
         plt.grid()
-        plt.show()
+        plt.show(block=False)
         return
 
     return fig
@@ -230,7 +230,7 @@ def plot_confusion_matrix(labels, predictions, class_names):
     fig.tight_layout()
     plt.title("Confusion matrix", fontsize=20) 
    
-    plt.show()
+    plt.show(block=False)
 
 def plot_classifier_response(softmaxes, labels, particle_names, label_dict, 
                             bins=None, linestyles=None, legend_locs=None,
