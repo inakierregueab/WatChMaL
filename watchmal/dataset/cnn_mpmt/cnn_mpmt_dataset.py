@@ -122,7 +122,8 @@ class CNNmPMTDataset(H5Dataset):
 
     def fix_transformation(self):
         if self.transforms is not None:
-            rand_choice = random.randint(0, len(self.transforms))
+            # TODO: k is the depth of consecutive transformations, 2 o 3?
+            rand_choice = random.sample(range(len(self.transforms)+1), k=2)
         else:
             rand_choice = 0
         return rand_choice
