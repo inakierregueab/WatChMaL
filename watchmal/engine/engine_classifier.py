@@ -152,10 +152,16 @@ class ClassifierEngine:
                     probs = torch.cat((probs, torch.unsqueeze(softmax, 2)), 2)
                     raw_output = torch.cat((raw_output, torch.unsqueeze(model_out, 2)), 2)
 
-                # TODO: uncertainty before or after softmax?
                 softmax = torch.mean(probs, 2)
                 model_out = torch.mean(raw_output, 2)
                 uncertainty = torch.std(probs, 2)
+
+                # TODO: H and I better in post processing?
+                epsilon = sys.float_info.min
+                # Calculating entropy across multiple MCD forward passes
+                #entropy = -torch.sum(softmax * torch.log(softmax + epsilon), dim=1)
+                # Calculating mutual information across multiple MCD forward passes
+                #mutual_info = entropy - torch.mean(torch.sum(-probs * torch.log(probs + epsilon), dim=1), dim=-1)
 
                 result['uncertainty'] = uncertainty
 

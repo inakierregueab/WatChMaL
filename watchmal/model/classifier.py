@@ -42,8 +42,6 @@ class ResNetFullyConnected(nn.Module):
         x = self.relu(self.cl_fc3(x))
         x = self.dropout(x)
         x = self.cl_fc4(x)
-        # TODO: dropout between last and softmax?
-        #x = self.dropout(x)
         return x
 
 
