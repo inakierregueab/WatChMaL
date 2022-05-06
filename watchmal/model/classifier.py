@@ -1,17 +1,17 @@
 import torch.nn as nn
 from hydra.utils import instantiate
-import torch.nn.functional as F
 
 
 class Classifier(nn.Module):
-    def __init__(self, feature_extractor, classification_network, num_classes):
+    def __init__(self, feature_extractor, classification_network, num_classes, fc_dropout):
         super().__init__()
 
         # Classifier fully connected layers
         self.feature_extractor = instantiate(feature_extractor)
         classification_kwargs = {
             "num_classes": num_classes,
-            "num_inputs": feature_extractor.num_output_channels
+            "num_inputs": feature_extractor.num_output_channels,
+            "fc_dropout": fc_dropout
         }
         self.classification_network = instantiate(classification_network, **classification_kwargs)
         self.softmax = nn.Softmax(dim=1)
@@ -24,16 +24,14 @@ class Classifier(nn.Module):
 
 
 class ResNetFullyConnected(nn.Module):
-    def __init__(self, num_inputs, num_classes):
+    def __init__(self, num_inputs, num_classes, fc_dropout):
         super().__init__()
         self.cl_fc1 = nn.Linear(num_inputs, int(num_inputs // 2))
         self.cl_fc2 = nn.Linear(int(num_inputs // 2), int(num_inputs // 4))
         self.cl_fc3 = nn.Linear(int(num_inputs // 4), int(num_inputs // 8))
         self.cl_fc4 = nn.Linear(int(num_inputs // 8), num_classes)
         self.relu = nn.ReLU(inplace=True)
-
-        self.p = 0.1
-        self.dropout = nn.Dropout(self.p)
+        self.dropout = nn.Dropout(p=fc_dropout)
 
     def forward(self, x):
         x = self.dropout(x)

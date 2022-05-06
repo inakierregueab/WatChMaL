@@ -11,6 +11,7 @@ from torch import optim
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn.parallel import DistributedDataParallel as DDP
+from torchsummary import summary
 
 # generic imports
 from math import floor, ceil
@@ -43,6 +44,9 @@ class ClassifierEngine:
         self.rank = rank
         self.model = model
         self.device = torch.device(gpu)
+
+        # TODO: print model summary
+        #summary(self.model, (19, 29, 60))
 
         # Setup the parameters to save given the model type
         if isinstance(self.model, DDP):

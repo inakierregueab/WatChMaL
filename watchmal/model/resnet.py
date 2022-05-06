@@ -24,7 +24,7 @@ def conv4x4(in_planes, out_planes, stride=1):
 class BasicBlock(nn.Module):
     expansion = 1
 
-    def __init__(self, inplanes, planes, stride=1, downsample=None):
+    def __init__(self, inplanes, planes, bb_dropout, stride=1, downsample=None):
         super(BasicBlock, self).__init__()
 
         if downsample is None:
@@ -41,14 +41,18 @@ class BasicBlock(nn.Module):
         self.bn2 = nn.BatchNorm2d(planes)
         self.downsample = downsample
         self.stride = stride
+        self.cdropout = nn.Dropout2d(p=bb_dropout)
 
     def forward(self, x):
         identity = x
 
-        out = self.conv1(x)
+        #TODO: Review dropout ordering in basic block, BN confussion
+        out = self.cdropout(x)
+        out = self.conv1(out)
         out = self.bn1(out)
         out = self.relu(out)
 
+        out = self.cdropout(out)
         out = self.conv2(out)
         out = self.bn2(out)
 
@@ -109,7 +113,9 @@ class Bottleneck(nn.Module):
 
 class ResNet(nn.Module):
 
-    def __init__(self, block, layers, num_input_channels, num_output_channels, zero_init_residual=False):
+    # TODO: dropout only passed to BasicBlock, need for more implementations, model.summary()?
+
+    def __init__(self, block, layers, num_input_channels, num_output_channels, bb_dropout, zero_init_residual=False):
 
         super(ResNet, self).__init__()
 
@@ -121,11 +127,11 @@ class ResNet(nn.Module):
         self.conv2 = nn.Conv2d(16, 64, kernel_size=1, stride=1, padding=0, bias=False)
         self.bn2 = nn.BatchNorm2d(64)
 
-        self.layer0 = BasicBlock(64, 64)
-        self.layer1 = self._make_layer(block, 64, layers[0], stride=2)
-        self.layer2 = self._make_layer(block, 64, layers[1], stride=2)
-        self.layer3 = self._make_layer(block, 64, layers[2], stride=2)
-        self.layer4 = self._make_layer(block, 128, layers[3], stride=2)
+        self.layer0 = BasicBlock(64, 64, bb_dropout=bb_dropout)
+        self.layer1 = self._make_layer(block, 64, layers[0], stride=2, bb_dropout=bb_dropout)
+        self.layer2 = self._make_layer(block, 64, layers[1], stride=2, bb_dropout=bb_dropout)
+        self.layer3 = self._make_layer(block, 64, layers[2], stride=2, bb_dropout=bb_dropout)
+        self.layer4 = self._make_layer(block, 128, layers[3], stride=2, bb_dropout=bb_dropout)
 
         self.unroll_size = 128 * block.expansion
         self.bool_deep = False
@@ -140,6 +146,9 @@ class ResNet(nn.Module):
         self.conv3f = nn.Conv2d(self.unroll_size, self.unroll_size, kernel_size=(1, 3), stride=(1, 1))
 
         self.bn3 = nn.BatchNorm2d(self.unroll_size)
+
+        self.cdropout = nn.Dropout2d(p=bb_dropout)
+        self.wdropout = nn.Dropout(p=bb_dropout)
 
         for m in self.modules():
             if isinstance(m, Bottleneck):
@@ -168,7 +177,7 @@ class ResNet(nn.Module):
                 elif isinstance(m, BasicBlock):
                     nn.init.constant_(m.bn2.weight, 0)
 
-    def _make_layer(self, block, planes, blocks, stride=1):
+    def _make_layer(self, block, planes, blocks, bb_dropout, stride=1):
         downsample = None
         if stride != 1 or self.inplanes != planes * block.expansion:
             if planes < 512:
@@ -182,18 +191,23 @@ class ResNet(nn.Module):
                     nn.BatchNorm2d(planes * block.expansion),
                 )
         layers = []
-        layers.append(block(self.inplanes, planes, stride, downsample))
+        layers.append(block(self.inplanes, planes, bb_dropout, stride, downsample))
         self.inplanes = planes * block.expansion
         for _ in range(1, blocks):
-            layers.append(block(self.inplanes, planes))
+            layers.append(block(self.inplanes, planes, bb_dropout))
 
         return nn.Sequential(*layers)
 
     def forward(self, x):
+
+        # TODO: dropout here?
+        x = self.cdropout(x)
         x = self.conv1(x)
         x = self.bn1(x)
         x = self.relu(x)
 
+        # TODO: dropout here?
+        x = self.cdropout(x)
         x = self.conv2(x)
         x = self.bn2(x)
         x = self.relu(x)
@@ -204,6 +218,7 @@ class ResNet(nn.Module):
         x = self.layer3(x)
         x = self.layer4(x)
 
+        x = self.cdropout(x)
         if x.size()[-2:] == (4, 4):
             x = self.conv3a(x)
         elif x.size()[-2:] == (1, 1):
@@ -219,11 +234,13 @@ class ResNet(nn.Module):
         
         x = self.bn3(x)
         x = self.relu(x)
+        x = self.cdropout(x)
 
         x = x.view(x.size(0), -1)
         x = self.relu(self.fc1(x))
 
         if self.bool_deep:
+            x = self.wdropout(x)
             x = self.relu(self.fc2(x))
         return x
 
