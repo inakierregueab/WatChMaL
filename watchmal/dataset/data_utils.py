@@ -68,9 +68,12 @@ def get_transformations(transformations, transform_names):
 
 def apply_random_transformations(transforms, data, rand_choice, segmented_labels = None):
     transforms = transforms + [None]
-    transformation = transforms[rand_choice]
-    if transformation is not None:
-        data = transformation(data)
-        if segmented_labels is not None:
-            segmented_labels = transformation(segmented_labels)
+
+    for idx in rand_choice:
+        transformation = transforms[idx]
+        if transformation is not None:
+            data = transformation(data)
+            if segmented_labels is not None:
+                segmented_labels = transformation(segmented_labels)
+
     return data
