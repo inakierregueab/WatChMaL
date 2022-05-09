@@ -156,7 +156,8 @@ class ClassifierEngine:
                 model_out = torch.mean(raw_output, 2)
                 uncertainty = torch.std(probs, 2)
 
-                # TODO: H and I better in post processing?
+                # TODO: H and I better in post processing, same with mean and std, output all values for plots?
+                # https://xuwd11.github.io/Dropout_Tutorial_in_PyTorch/#51-dropout-as-bayesian-approximation-in-classification-task
                 epsilon = sys.float_info.min
                 # Calculating entropy across multiple MCD forward passes
                 #entropy = -torch.sum(softmax * torch.log(softmax + epsilon), dim=1)
