@@ -115,4 +115,4 @@ kernprof.py
 __MACOSX/
 /outputs/
 /data/
-/xps/
+**/xps/
