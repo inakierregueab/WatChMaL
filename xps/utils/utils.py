@@ -1,8 +1,11 @@
 import glob
 import numpy as np
 import pandas as pd
+import math
 import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
 from sklearn.metrics import *
+from functools import reduce
 
 
 def basic_metrics(base_path, labels, mode):
@@ -155,3 +158,331 @@ def data_splitting(split_idxs):
     print('Events for testing: %1.3f' % (n_test / n_total * 100))
     print('Events for validation: %1.3f' % (n_val / n_total * 100))
     print('Events for training: %1.3f' % (n_train / n_total * 100))
+
+
+def plot_classifier_response(softmaxes, labels, particle_names, label_dict,
+                             bins=None, linestyles=None, legend_locs=None,
+                             extra_panes=[], xlim=None, label_size=14, legend_label_dict=None, show=True):
+    '''
+    Plot classifier likelihoods over different classes for events of a given particle type
+
+    Args:
+        softmaxes           ... 2d array with first dimension n_samples
+        labels              ... 1d array of particle labels to use in every output plot, or list of 4 lists of particle names to use in each respectively
+        particle_names      ... list of string names of particle types to plot. All must be keys in 'label_dict'
+        label_dict          ... dictionary of particle labels, with string particle name keys and values corresponsing to values taken by 'labels'
+        bins                ... optional, number of bins for histogram
+        legend_locs         ... list of 4 strings for positioning the legends
+        extra_panes         ... list of lists of particle names, each of which contains the names of particles to use in a joint response plot
+        xlim                ... limit the x-axis
+        label_size          ... font size
+        legend_label_dict   ... dictionary of display symbols for each string label, to use for displaying pretty characters
+        show                ... if true then display figure, otherwise return figure
+    author: Calum Macdonald
+    June 2020
+    '''
+    if legend_label_dict is None:
+        legend_label_dict = {}
+        for name in particle_names:
+            legend_label_dict[name] = name
+
+    legend_size = label_size
+
+    num_panes = softmaxes.shape[1] + len(extra_panes)
+
+    fig, axes = plt.subplots(1, num_panes, figsize=(5 * num_panes, 5), facecolor='w')
+    inverse_label_dict = {value: key for key, value in label_dict.items()}
+
+    label_dict = {k: v for k, v in sorted(label_dict.items(), key=lambda item: item[1])}
+    softmaxes_list = separate_particles([softmaxes], labels, label_dict, [name for name in label_dict.keys()])[0]
+
+    if isinstance(particle_names[0], str):
+        particle_names = [particle_names for _ in range(num_panes)]
+
+    # generate single particle plots
+    for independent_particle_label, ax in enumerate(axes[:softmaxes.shape[1]]):
+        print(label_dict)
+        dependent_particle_labels = [label_dict[particle_name] for particle_name in
+                                     particle_names[independent_particle_label]]
+        for dependent_particle_label in dependent_particle_labels:
+            ax.hist(softmaxes_list[dependent_particle_label][:, independent_particle_label],
+                    label=f"{legend_label_dict[inverse_label_dict[dependent_particle_label]]} Events",
+                    alpha=0.7, histtype=u'step', bins=bins, density=True,
+                    linestyle=linestyles[dependent_particle_label] if linestyles is not None else 'solid', linewidth=2)
+        ax.legend(loc=legend_locs[independent_particle_label] if legend_locs is not None else 'best',
+                  fontsize=legend_size)
+        ax.set_xlabel('P({})'.format(legend_label_dict[inverse_label_dict[independent_particle_label]]),
+                      fontsize=label_size)
+        ax.set_ylabel('Normalized Density', fontsize=label_size)
+        ax.set_yscale('log')
+
+    ax = axes[-1]
+
+    # generate joint plots
+    for n, extra_pane_particle_names in enumerate(extra_panes):
+        pane_idx = softmaxes.shape[1] + n
+        ax = axes[pane_idx]
+        dependent_particle_labels = [label_dict[particle_name] for particle_name in particle_names[pane_idx]]
+        for dependent_particle_label in dependent_particle_labels:
+            ax.hist(reduce(lambda x, y: x + y,
+                           [softmaxes_list[dependent_particle_label][:, label_dict[pname]] for pname in
+                            extra_pane_particle_names]),
+                    label=legend_label_dict[particle_names[-1][dependent_particle_label]],
+                    alpha=0.7, histtype=u'step', bins=bins, density=True,
+                    linestyle=linestyles[dependent_particle_label] if linestyles is not None else 'solid', linewidth=2)
+        ax.legend(loc=legend_locs[-1] if legend_locs is not None else 'best', fontsize=legend_size)
+        xlabel = ''
+        for list_index, independent_particle_name in enumerate(extra_pane_particle_names):
+            xlabel += 'P({})'.format(legend_label_dict[independent_particle_name])
+            if list_index < len(extra_pane_particle_names) - 1:
+                xlabel += ' + '
+        ax.set_xlabel(xlabel, fontsize=label_size)
+        ax.set_ylabel('Normalized Density', fontsize=label_size)
+        ax.set_yscale('log')
+
+    plt.tight_layout()
+
+    if show:
+        plt.show()
+        return
+
+    return fig
+
+
+def separate_particles(input_array_list, labels, index_dict, desired_labels=['gamma', 'e', 'mu']):
+    '''
+    Separates all arrays in a list by indices where 'labels' takes a certain value, corresponding to a particle type.
+
+    Args:
+        input_array_list    ... list of arrays to be separated, must have same length and same length as 'labels'
+        labels              ... list of labels, taking any of the three values in index_dict.values()
+        index_dict          ... dictionary of particle labels, must have 'gamma','mu','e' keys pointing to values taken by 'labels',
+                                        unless desired_labels is passed
+        desired_labels      ... optional list specifying which labels are desired and in what order. Default is ['gamma','e','mu']
+
+    Returns: a list of tuples, each tuple contains section of each array corresponsing to a desired label
+    author: Calum Macdonald
+    June 2020
+    '''
+    idxs_list = [np.where(labels == index_dict[label])[0] for label in desired_labels]
+
+    separated_arrays = []
+    for array in input_array_list:
+        separated_arrays.append(tuple([array[idxs] for idxs in idxs_list]))
+
+    return separated_arrays
+
+
+def compute_roc(softmax_out_val, labels_val, true_label, false_label):
+    """
+    Compute ROC metrics from softmax and labels for given particle labels
+
+    Args:
+        softmax_out_val     ... array of softmax outputs
+        labels_val          ... 1D array of actual labels
+        true_label          ... label of class to be used as true binary label
+        false_label         ... label of class to be used as false binary label
+
+    Returns:
+        fpr, tpr, thr       ... false positive rate, true positive rate, thresholds used to compute scores
+    """
+    labels_val_for_comp = labels_val[np.where((labels_val == false_label) | (labels_val == true_label))]
+    softmax_out_for_comp = softmax_out_val[np.where((labels_val == false_label) | (labels_val == true_label))][:,
+                           true_label]
+
+    fpr, tpr, thr = roc_curve(labels_val_for_comp, softmax_out_for_comp, pos_label=true_label)
+
+    return fpr, tpr, thr
+
+
+def plot_roc(fpr, tpr, thr, true_label_name, false_label_name, fig_list=None, xlims=None, ylims=None, axes=None,
+             linestyle=None, linecolor=None, plot_label=None, show=False):
+    """
+    Plot ROC curves for a classifier that has been evaluated on a validation set with respect to given labels
+
+    Args:
+        fpr, tpr, thr           ... false positive rate, true positive rate, thresholds used to compute scores
+        true_label_name         ... name of class to be used as true binary label
+        false_label_name        ... name of class to be used as false binary label
+        fig_list                ... list of indexes of ROC curves to plot
+        xlims                   ... xlims to apply to plots
+        ylims                   ... ylims to apply to plots
+        axes                    ... axes to plot on
+        linestyle, linecolor    ... line style and color
+        plot_label              ... string to use in title of plots
+        show                    ... if true then display figure, otherwise return figure
+    """
+    # Compute additional parameters
+    rejection = 1.0 / (fpr + 1e-10)
+    roc_AUC = auc(fpr, tpr)
+
+    if fig_list is None:
+        fig_list = list(range(3))
+
+    figs = []
+    # Plot results
+    if axes is None:
+        if 0 in fig_list:
+            fig0, ax0 = plt.subplots(figsize=(12, 8), facecolor="w")
+            figs.append(fig0)
+        if 1 in fig_list:
+            fig1, ax1 = plt.subplots(figsize=(12, 8), facecolor="w")
+            figs.append(fig1)
+        if 2 in fig_list:
+            fig2, ax2 = plt.subplots(figsize=(12, 8), facecolor="w")
+            figs.append(fig2)
+    else:
+        print(axes)
+        axes_iter = iter(axes)
+        if 0 in fig_list:
+            ax0 = next(axes_iter)
+        if 1 in fig_list:
+            ax1 = next(axes_iter)
+        if 2 in fig_list:
+            ax2 = next(axes_iter)
+
+    if xlims is not None:
+        xlim_iter = iter(xlims)
+    if ylims is not None:
+        ylim_iter = iter(ylims)
+
+    if 0 in fig_list:
+        ax0.tick_params(axis="both", labelsize=20)
+        ax0.plot(fpr, tpr,
+                 label=plot_label if plot_label + ', AUC={:.3f}'.format(
+                     roc_AUC) is not None else r'{} VS {} ROC, AUC={:.3f}'.format(true_label_name, false_label_name,
+                                                                                  roc_AUC),
+                 linestyle=linestyle if linestyle is not None else None,
+                 color=linecolor if linecolor is not None else None)
+        ax0.set_xlabel('FPR', fontsize=20)
+        ax0.set_ylabel('TPR', fontsize=20)
+        ax0.legend(loc="lower right", prop={'size': 16})
+
+        if xlims is not None:
+            xlim = next(xlim_iter)
+            ax0.set_xlim(xlim[0], xlim[1])
+        if ylims is not None:
+            ylim = next(ylim_iter)
+            ax0.set_ylim(ylim[0], ylim[1])
+
+    if 1 in fig_list:
+        ax1.tick_params(axis="both", labelsize=20)
+        ax1.set_yscale('log')
+        ax1.grid(b=True, which='major', color='gray', linestyle='-')
+        ax1.grid(b=True, which='minor', color='gray', linestyle='--')
+        ax1.plot(tpr, rejection,
+                 label=plot_label + ', AUC={:.3f}'.format(
+                     roc_AUC) if plot_label is not None else r'{} VS {} ROC, AUC={:.3f}'.format(true_label_name,
+                                                                                                false_label_name,
+                                                                                                roc_AUC),
+                 linestyle=linestyle if linestyle is not None else None,
+                 color=linecolor if linecolor is not None else None)
+
+        xlabel = f'{true_label_name} Signal Efficiency'
+        ylabel = f'{false_label_name} Background Rejection'
+        title = '{} vs {} Rejection'.format(true_label_name, false_label_name)
+
+        ax1.set_xlabel(xlabel, fontsize=20)
+        ax1.set_ylabel(ylabel, fontsize=20)
+        ax1.set_title(title, fontsize=24)
+        ax1.legend(loc="upper right", prop={
+            'size': 16})  # bbox_to_anchor=(1.05, 1), loc='upper left') #loc="upper right",prop={'size': 16})
+
+        if xlims is not None:
+            xlim = next(xlim_iter)
+            ax1.set_xlim(xlim[0], xlim[1])
+        if ylims is not None:
+            ylim = next(ylim_iter)
+            ax1.set_ylim(ylim[0], ylim[1])
+
+    if 2 in fig_list:
+        ax2.tick_params(axis="both", labelsize=20)
+        # plt.yscale('log')
+        # plt.ylim(1.0,1)
+        ax2.grid(b=True, which='major', color='gray', linestyle='-')
+        ax2.grid(b=True, which='minor', color='gray', linestyle='--')
+        ax2.plot(tpr, tpr / np.sqrt(fpr),
+                 label=plot_label + ', AUC={:.3f}'.format(
+                     roc_AUC) if plot_label is not None else r'{} VS {} ROC, AUC={:.3f}'.format(true_label_name,
+                                                                                                false_label_name,
+                                                                                                roc_AUC),
+                 linestyle=linestyle if linestyle is not None else None,
+                 color=linecolor if linecolor is not None else None)
+        ax2.set_xlabel('efficiency', fontsize=20)
+        ax2.set_ylabel('~significance', fontsize=20)
+        ax2.legend(loc="upper right", prop={'size': 16})
+
+        if xlims is not None:
+            xlim = next(xlim_iter)
+            ax2.set_xlim(xlim[0], xlim[1])
+        if ylims is not None:
+            ylim = next(ylim_iter)
+            ax2.set_ylim(ylim[0], ylim[1])
+
+    if show:
+        plt.show()
+        return
+
+    if axes is None:
+        return tuple(figs)
+
+
+def multi_compute_roc(softmax_out_val_list, labels_val_list, true_label, false_label):
+    """
+    Call compute_roc on multiple sets of data
+
+    Args:
+        softmax_out_val_list    ... list of arrays of softmax outputs
+        labels_val_list         ... list of 1D arrays of actual labels
+        true_label              ... label of class to be used as true binary label
+        false_label             ... label of class to be used as false binary label
+
+    """
+    fprs, tprs, thrs = [], [], []
+    for softmax_out_val, labels_val in zip(softmax_out_val_list, labels_val_list):
+        fpr, tpr, thr = compute_roc(softmax_out_val, labels_val, true_label, false_label)
+        fprs.append(fpr)
+        tprs.append(tpr)
+        thrs.append(thr)
+
+    return fprs, tprs, thrs
+
+def multi_plot_roc(fprs, tprs, thrs, true_label_name, false_label_name, fig_list=None, xlims=None, ylims=None, axes=None, linestyles=None, linecolors=None, plot_labels=None, show=False):
+    '''
+    Plot multiple ROC curves of background rejection vs signal efficiency. Can plot 'rejection' (1/fpr) or 'fraction' (tpr).
+
+    Args:
+        fprs, tprs, thrs        ... list of false positive rate, list of true positive rate, list of thresholds used to compute scores
+        true_label_name         ... name of class to be used as true binary label
+        false_label_name        ... name of class to be used as false binary label
+        fig_list                ... list of indexes of ROC curves to plot
+        xlims                   ... xlims to apply to plots
+        ylims                   ... ylims to apply to plots
+        axes                    ... axes to plot on
+        linestyle, linecolor    ... lists of line styles and colors
+        plot_labels             ... list of strings to use in title of plots
+        show                    ... if true then display figures, otherwise return figures
+    '''
+    rejections = [1.0/(fpr+1e-10) for fpr in fprs]
+    AUCs = [auc(fpr,tpr) for fpr, tpr in zip(fprs, tprs)]
+
+    num_panes = len(fig_list)
+    fig, axes = plt.subplots(num_panes, 1, figsize=(12,8*num_panes))
+    if num_panes > 1:
+        fig.suptitle("ROC for {} vs {}".format(true_label_name, false_label_name), fontweight='bold',fontsize=32)
+
+    # Needed for 1 plot case
+    axes = np.array(axes).reshape(-1)
+
+    for idx, fpr, tpr, thr in zip(range(len(fprs)), fprs, tprs, thrs):
+        figs = plot_roc(fpr, tpr, thr,
+        true_label_name, false_label_name,
+        axes=axes, fig_list=fig_list, xlims=xlims, ylims=ylims,
+        linestyle=linestyles[idx]  if linestyles is not None else None,
+        linecolor=linecolors[idx] if linecolors is not None else None,
+        plot_label=plot_labels[idx] if plot_labels is not None else None,
+        show=False)
+
+    return figs
+
+# TODO: missing comparison utils
