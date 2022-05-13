@@ -203,14 +203,10 @@ class ResNet(nn.Module):
 
     def forward(self, x):
 
-        # TODO: dropout here?
-        x = self.cdropout(x)
         x = self.conv1(x)
         x = self.bn1(x)
         x = self.relu(x)
 
-        # TODO: dropout here?
-        x = self.cdropout(x)
         x = self.conv2(x)
         x = self.bn2(x)
         x = self.relu(x)
