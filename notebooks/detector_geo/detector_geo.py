@@ -4,7 +4,6 @@ import matplotlib.pyplot as plt
 
 
 #    POSITIONS OF MPMTS IN THE 2D IMAGE
-
 positions = np.load('/data/neutrinos/IWCD_Data/IWCDshort_mPMT_image_positions.npz')
 positions_df = pd.DataFrame(positions['mpmt_image_positions'])
 plt.figure(figsize=(14, 8))
@@ -23,7 +22,6 @@ for item in geo.files:
     geo_dict[item] = geo[item]
 
 positions = geo_dict['position']
-
 
 fig = plt.figure(figsize=(10, 10))
 ax = plt.axes(projection="3d")
