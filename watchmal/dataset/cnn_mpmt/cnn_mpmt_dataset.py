@@ -122,7 +122,7 @@ class CNNmPMTDataset(H5Dataset):
 
     def fix_transformation(self):
         if self.transforms is not None:
-            # TODO: k is the depth of consecutive transformations, 2 o 3?
+            # TODO: perform xps
             rand_choice = random.sample(range(len(self.transforms)+1), k=2)
         else:
             rand_choice = 0
@@ -133,7 +133,6 @@ class CNNmPMTDataset(H5Dataset):
         # Build image with data
         hit_data = from_numpy(self.process_data(self.event_hit_pmts, hit_data, data_type))
 
-        # TODO: Now only applying a single transformation
         # Perform transformation
         if self.transforms is not None:
             hit_data = du.apply_random_transformations(self.transforms, hit_data, rand_choice)

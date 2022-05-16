@@ -148,6 +148,7 @@ class ClassifierEngine:
                 probs = torch.unsqueeze(softmax, 2)
                 raw_output = torch.unsqueeze(model_out, 2)
 
+                # TODO: odd number to avoid tie in mode
                 for i in range(fwd_passes-1):
                     model_out, softmax = self.model(data)
                     probs = torch.cat((probs, torch.unsqueeze(softmax, 2)), 2)
@@ -157,19 +158,18 @@ class ClassifierEngine:
                 model_out = torch.mean(raw_output, 2)
 
                 # Uncertainty measurements
-                total_variance = torch.std(probs, 2)
-
                 epsilon = sys.float_info.min
-                entropy = -torch.sum(softmax * torch.log(softmax + epsilon), dim=1)
+                # TODO: reduction only because for 2 classes both uncertainties are equal
+                total_variance = torch.std(probs[:, 0], dim=1)
+                entropy = - torch.sum(softmax * torch.log(softmax + epsilon), dim=1)
                 mutual_info = entropy - torch.mean(torch.sum(-probs * torch.log(probs + epsilon), dim=1), dim=-1)
+                # TODO: only implemented for 2 class (for more classes: heapq.nlargest(2, probs) and subtract)
+                margin_confidence = torch.mean(torch.abs(probs[:, 0, :] - probs[:, 1, :]), dim=1)
+                freq_modes = torch.stack([torch.max(torch.unique(t, return_counts=True)[1]) for t in torch.unbind(torch.argmax(probs, dim=1))])
+                variation_ratio = 1 - (freq_modes/fwd_passes)
 
-                # TODO: finish with torch
-                margin_confidence =  heapq.nlargest(2, probs)
-                #variation_ratio =
-
-                # TODO: concat and export as uncertainties
-
-                result['uncertainty'] = total_variance
+                uncertainties = torch.stack((total_variance, entropy, mutual_info, margin_confidence, variation_ratio), dim=-1)
+                result['uncertainty'] = uncertainties
 
             predicted_labels = torch.argmax(model_out, dim=-1)
 
