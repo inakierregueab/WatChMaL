@@ -1,8 +1,8 @@
-mc_dropout: false
-fwd_passes: 4
+mc_dropout: True
+fwd_passes: 51
 
 data_loaders:
   test:
     split_key: test_idxs
-    batch_size: 4096
+    batch_size: 1024
     num_workers: 4

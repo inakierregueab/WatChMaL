@@ -165,6 +165,7 @@ class ClassifierEngine:
                 mutual_info = entropy - torch.mean(torch.sum(-probs * torch.log(probs + epsilon), dim=1), dim=-1)
                 # TODO: only implemented for 2 class (for more classes: heapq.nlargest(2, probs) and subtract)
                 margin_confidence = torch.mean(torch.abs(probs[:, 0, :] - probs[:, 1, :]), dim=1)
+                # TODO: avoid for loop
                 freq_modes = torch.stack([torch.max(torch.unique(t, return_counts=True)[1]) for t in torch.unbind(torch.argmax(probs, dim=1))])
                 variation_ratio = 1 - (freq_modes/fwd_passes)
 
@@ -495,6 +496,7 @@ class ClassifierEngine:
     def enable_dropout(self, model):
         """ Function to enable the dropout layers during test-time """
         for m in model.modules():
+            # TODO: check that BN layers are in eval mode
             if m.__class__.__name__.startswith('Dropout'):
                 m.train()
         

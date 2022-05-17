@@ -1,4 +1,4 @@
 _recursive_: False
 _target_: watchmal.model.classifier.Classifier
 num_classes: 2
-fc_dropout: 0.0
+fc_dropout: 0.1

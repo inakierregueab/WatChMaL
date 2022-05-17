@@ -6,7 +6,7 @@ defaults:
     - data: iwcd_short_ifae
     - data/dataset: iwcd_cnn_short_ifae
     - model: classifier
-    - model/feature_extractor: resnet101
+    - model/feature_extractor: resnet18
     - model/classification_network: resnet_fc
     - engine: classifier
     - tasks/train: train_resnet
