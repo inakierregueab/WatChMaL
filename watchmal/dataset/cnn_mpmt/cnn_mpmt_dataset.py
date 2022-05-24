@@ -123,7 +123,7 @@ class CNNmPMTDataset(H5Dataset):
     def fix_transformation(self):
         if self.transforms is not None:
             # TODO: perform xps
-            rand_choice = random.sample(range(len(self.transforms)+1), k=2)
+            rand_choice = random.choices(range(len(self.transforms)+1), k=3)
         else:
             rand_choice = 0
         return rand_choice
@@ -142,7 +142,7 @@ class CNNmPMTDataset(H5Dataset):
             hit_data = self.mpmtPadding(hit_data)
 
         # collapse arrays if desired, for Q+Ts model add: and data_type == 't'
-        if self.collapse_arrays:
+        if self.collapse_arrays and data_type == 't':
             mean_channel = torch.mean(hit_data, 0, keepdim=True)
             std_channel = torch.std(hit_data, 0, keepdim=True)
             hit_data = torch.cat((mean_channel, std_channel), 0)
