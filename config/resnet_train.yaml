@@ -6,7 +6,7 @@ defaults:
     - data: iwcd_short
     - data/dataset: iwcd_cnn_short
     - model: classifier
-    - model/feature_extractor: resnet18
+    - model/feature_extractor: resnet50
     - model/classification_network: resnet_fc
     - engine: classifier
     - tasks/train: train_resnet
