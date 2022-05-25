@@ -22,7 +22,7 @@ pmts_per_mpmt = 19
 
 class CNNmPMTDataset(H5Dataset):
     def __init__(self, h5file, mpmt_positions_file, is_distributed, transforms=None, collapse_arrays=False, pad=False,
-                 mode='both', scaling=False):
+                 mode='both', scaling=False, transf_depth=3):
         """
         Args:
             h5_path             ... path to h5 dataset file
@@ -52,6 +52,8 @@ class CNNmPMTDataset(H5Dataset):
         self.mu_t = 975.42676   #np.mean(self.hdf5_hit_time[:1000000000])
         self.std_q = 6.9522057  #np.std(self.hdf5_hit_charge[:1000000000])
         self.std_t = 47.54492   #np.std(self.hdf5_hit_time[:1000000000])
+
+        self.transf_depth = transf_depth
         ################
 
     def process_data(self, hit_pmts, hit_data, data_type):
@@ -122,8 +124,7 @@ class CNNmPMTDataset(H5Dataset):
 
     def fix_transformation(self):
         if self.transforms is not None:
-            # TODO: perform xps
-            rand_choice = random.choices(range(len(self.transforms)+1), k=3)
+            rand_choice = random.choices(range(len(self.transforms)+1), k=self.transf_depth)
         else:
             rand_choice = 0
         return rand_choice
@@ -134,7 +135,7 @@ class CNNmPMTDataset(H5Dataset):
         hit_data = from_numpy(self.process_data(self.event_hit_pmts, hit_data, data_type))
 
         # Perform transformation
-        if self.transforms is not None:
+        if self.transforms is not None and bool(rand_choice):
             hit_data = du.apply_random_transformations(self.transforms, hit_data, rand_choice)
 
         # Add padding

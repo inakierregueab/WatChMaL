@@ -21,7 +21,7 @@ import numpy as np
 
 logger = logging.getLogger('train')
 
-@hydra.main(config_path='config/', config_name='resnet_test_ifae')
+@hydra.main(config_path='config/', config_name='resnet_train_ifae')
 def main(config):
     """
     Run model using given config, spawn worker subprocesses as necessary
