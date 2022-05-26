@@ -115,4 +115,5 @@ kernprof.py
 __MACOSX/
 /outputs/
 /data/
-/notebooks/**
+notebooks/**
+.ipynb
