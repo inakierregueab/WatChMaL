@@ -4,4 +4,4 @@ mode: [charge, time]
 collapse_arrays: True
 pad: True
 scaling: True
-transf_depth: 0
+transf_depth: 4

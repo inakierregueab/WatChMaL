@@ -1,5 +1,5 @@
-mc_dropout: True
-fwd_passes: 51
+mc_dropout: False
+fwd_passes: 0
 
 data_loaders:
   test:
