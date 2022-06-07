@@ -54,7 +54,7 @@ def disp_learn_hist(location, title=None, losslim=None, axis=None, show=True):
     # added these four lines
     lines  = line11 + line12 + line21 + line22
     labels = [l.get_label() for l in lines]
-    leg    = ax2.legend(lines, labels, fontsize=14, loc=3, numpoints=1)
+    leg    = ax2.legend(lines, labels, fontsize=16, loc=5, numpoints=1)
     leg_frame = leg.get_frame()
     leg_frame.set_facecolor('white')
 
@@ -173,7 +173,7 @@ def disp_learn_hist_smoothed(location, losslim=None, window_train=400, window_va
 
     if show:
         plt.grid()
-        plt.show(block=False)
+        plt.show()
         return
 
     return fig
@@ -230,18 +230,17 @@ def plot_confusion_matrix(labels, predictions, class_names):
     fig.tight_layout()
     plt.title("Confusion matrix", fontsize=20) 
    
-    plt.show(block=False)
+    plt.show()
 
-def plot_classifier_response(softmaxes, labels, particle_names, label_dict, 
-                            bins=None, linestyles=None, legend_locs=None,
-                            extra_panes=[], xlim=None,label_size=14, legend_label_dict=None, show=True):
+def plot_classifier_response(softmaxes, labels, particle_names, label_dict, bins=30, linestyles=None, legend_locs=None,
+                            extra_panes=[], xlim=None, label_size=14, legend_label_dict=None, title=None, show=True):
     '''
     Plot classifier likelihoods over different classes for events of a given particle type
 
     Args:
         softmaxes           ... 2d array with first dimension n_samples
         labels              ... 1d array of particle labels to use in every output plot, or list of 4 lists of particle names to use in each respectively
-        particle_names      ... list of string names of particle types to plot. All must be keys in 'label_dict' 
+        particle_names      ... list of string names of particle types to plot (as independent variable). All must be keys in 'label_dict' 
         label_dict          ... dictionary of particle labels, with string particle name keys and values corresponsing to values taken by 'labels'
         bins                ... optional, number of bins for histogram
         legend_locs         ... list of 4 strings for positioning the legends
@@ -255,17 +254,16 @@ def plot_classifier_response(softmaxes, labels, particle_names, label_dict,
     '''
     if legend_label_dict is None:
         legend_label_dict={}
-        for name in particle_names:
+        for name in label_dict.keys():
             legend_label_dict[name] = name
     
     legend_size=label_size
 
-    num_panes = softmaxes.shape[1]+len(extra_panes)
+    num_panes = softmaxes.shape[1]
 
-    fig, axes = plt.subplots(1,num_panes,figsize=(5*num_panes,5), facecolor='w')
+    fig, axes = plt.subplots(1, num_panes, figsize=(5*num_panes,5), facecolor='w')
     inverse_label_dict = {value:key for key, value in label_dict.items()}
 
-    label_dict = {k: v for k, v in sorted(label_dict.items(), key=lambda item: item[1])}
     softmaxes_list = separate_particles([softmaxes], labels, label_dict, [name for name in label_dict.keys()])[0]
 
     if isinstance(particle_names[0],str):
@@ -273,41 +271,202 @@ def plot_classifier_response(softmaxes, labels, particle_names, label_dict,
 
     # generate single particle plots
     for independent_particle_label, ax in enumerate(axes[:softmaxes.shape[1]]):
-        print(label_dict)
         dependent_particle_labels = [label_dict[particle_name] for particle_name in particle_names[independent_particle_label]]
         for dependent_particle_label in dependent_particle_labels:
             ax.hist(softmaxes_list[dependent_particle_label][:,independent_particle_label],
                     label=f"{legend_label_dict[inverse_label_dict[dependent_particle_label]]} Events",
                     alpha=0.7,histtype=u'step',bins=bins,density=True,
-                    linestyle=linestyles[dependent_particle_label] if linestyles is not None else 'solid',linewidth=2)            
+                    linestyle=linestyles[dependent_particle_label],linewidth=2)            
         ax.legend(loc=legend_locs[independent_particle_label] if legend_locs is not None else 'best', fontsize=legend_size)
         ax.set_xlabel('P({})'.format(legend_label_dict[inverse_label_dict[independent_particle_label]]), fontsize=label_size)
         ax.set_ylabel('Normalized Density', fontsize=label_size)
         ax.set_yscale('log')
 
-    ax = axes[-1]
+    plt.tight_layout(rect=[0, 0.03, 1, 0.90])
 
-    # generate joint plots
-    for n, extra_pane_particle_names in enumerate(extra_panes):
-        pane_idx = softmaxes.shape[1]+n
-        ax=axes[pane_idx]
-        dependent_particle_labels = [label_dict[particle_name] for particle_name in particle_names[pane_idx]]
-        for dependent_particle_label in dependent_particle_labels:
-                ax.hist(reduce(lambda x,y : x+y, [softmaxes_list[dependent_particle_label][:,label_dict[pname]] for pname in extra_pane_particle_names]),
-                        label=legend_label_dict[particle_names[-1][dependent_particle_label]],
+    if title is not None:
+        fig.suptitle(title, fontsize=24)
+
+    if show:
+        plt.show()
+        return
+
+    return fig
+
+def plot_reduced_classifier_response(softmax, labels, comparisons_list, label_dict, 
+                            bins=30, linestyles=None, legend_locs=None,
+                            xlim=None, label_size=14, legend_label_dict=None, normalize=True, title=None, show=True):
+    '''
+    Plot classifier likelihoods over different classes for events of a given particle type
+
+    Args:
+        softmax             ... 2d array with first dimension n_samples
+        labels              ... 1d array of particle labels to use in every output plot, or list of 4 lists of particle names to use in each respectively
+        particle_names      ... list of string names of particle types to plot (as independent variable). All must be keys in 'label_dict' 
+        label_dict          ... dictionary of particle labels, with string particle name keys and values corresponsing to values taken by 'labels'
+        bins                ... optional, number of bins for histogram
+        legend_locs         ... list of 4 strings for positioning the legends
+        comparisons_list         ... list of lists of particle names, each of which contains the names of particles to use in a joint response plot
+        xlim                ... limit the x-axis
+        label_size          ... font size
+        legend_label_dict   ... dictionary of display symbols for each string label, to use for displaying pretty characters
+        show                ... if true then display figure, otherwise return figure
+    '''
+    if legend_label_dict is None:
+        legend_label_dict={}
+        for name in label_dict.keys():
+            legend_label_dict[name] = name
+    
+    legend_size=label_size
+
+    num_panes = len(comparisons_list)
+
+    fig, axes = plt.subplots(1, num_panes, figsize=(5*num_panes,5), facecolor='w', squeeze=False)
+    inverse_label_dict = {value:key for key, value in label_dict.items()}
+
+    softmaxes_list = separate_particles([softmax], labels, label_dict, [name for name in label_dict.keys()])[0]
+
+    # Plot each comparison
+    for idx, ax in enumerate(axes.reshape(-1)):
+        extra_pane_particle_names = comparisons_list[idx]
+
+        independent_particle_names = extra_pane_particle_names['independent']
+        dependent_particle_names = extra_pane_particle_names['dependent']
+
+        # Plot hist
+        for dependent_particle_name in dependent_particle_names:
+                dependent_particle_label = label_dict[dependent_particle_name]
+
+                independent_class_scores = [softmaxes_list[dependent_particle_label][:, label_dict[pname]] for pname in independent_particle_names]
+                    
+                summed_independent_class_scores = reduce(lambda x,y : x+y, independent_class_scores)
+
+                if normalize:
+                    all_class_names = list(set(independent_particle_names + dependent_particle_names))
+
+                    all_class_scores = [softmaxes_list[dependent_particle_label][:, label_dict[pname]] for pname in all_class_names]
+
+                    summed_class_scores = reduce(lambda x,y : x+y, all_class_scores)
+
+                    summed_independent_class_scores = summed_independent_class_scores / summed_class_scores
+
+                ax.hist(summed_independent_class_scores,
+                        label=legend_label_dict[dependent_particle_name],
                         alpha=0.7,histtype=u'step',bins=bins,density=True,
-                        linestyle=linestyles[dependent_particle_label] if linestyles is not None else 'solid',linewidth=2)         
+                        linestyle=linestyles[dependent_particle_label],linewidth=2)         
         ax.legend(loc=legend_locs[-1] if legend_locs is not None else 'best', fontsize=legend_size)
         xlabel = ''
-        for list_index, independent_particle_name in enumerate(extra_pane_particle_names):
+
+        # Construct axis labels
+        for list_index, independent_particle_name in enumerate(independent_particle_names):
             xlabel += 'P({})'.format(legend_label_dict[independent_particle_name])
-            if list_index < len(extra_pane_particle_names) - 1:
+            if list_index < len(independent_particle_names) - 1:
                 xlabel += ' + '
+        
         ax.set_xlabel(xlabel, fontsize=label_size)
         ax.set_ylabel('Normalized Density', fontsize=label_size)
         ax.set_yscale('log')
     
-    plt.tight_layout()
+    plt.tight_layout(rect=[0, 0.03, 1, 0.90])
+
+    if title is not None:
+        fig.suptitle(title, fontsize=24)
+
+    if show:
+        plt.show()
+        return
+
+    return fig
+
+def plot_2D_classifier_response(softmax, labels, comparisons_list, label_dict, 
+                            bins=40, linestyles=None, legend_locs=None,
+                            xlim=None, label_size=14, legend_label_dict=None, normalize=True, title=None, show=True):
+    '''
+    Plot classifier likelihoods over different classes for events of a given particle type
+
+    Args:
+        softmax             ... 2d array with first dimension n_samples
+        labels              ... 1d array of particle labels to use in every output plot, or list of 4 lists of particle names to use in each respectively
+        particle_names      ... list of string names of particle types to plot (as independent variable). All must be keys in 'label_dict' 
+        label_dict          ... dictionary of particle labels, with string particle name keys and values corresponsing to values taken by 'labels'
+        bins                ... optional, number of bins for histogram
+        legend_locs         ... list of 4 strings for positioning the legends
+        comparisons_list         ... list of lists of particle names, each of which contains the names of particles to use in a joint response plot
+        xlim                ... limit the x-axis
+        label_size          ... font size
+        legend_label_dict   ... dictionary of display symbols for each string label, to use for displaying pretty characters
+        show                ... if true then display figure, otherwise return figure
+    '''
+    if legend_label_dict is None:
+        legend_label_dict={}
+        for name in label_dict.keys():
+            legend_label_dict[name] = name
+    
+    legend_size=label_size
+
+    num_panes = len(comparisons_list)
+
+    fig, axes = plt.subplots(1, num_panes, figsize=(5*num_panes, 5), facecolor='w', squeeze=False)
+    inverse_label_dict = {value:key for key, value in label_dict.items()}
+
+    softmaxes_list = separate_particles([softmax], labels, label_dict, [name for name in label_dict.keys()])[0]
+
+    # Plot each comparison
+    for idx, ax in enumerate(axes.reshape(-1)):
+        extra_pane_particle_names = comparisons_list[idx]
+
+        independent_1_particle_names = extra_pane_particle_names['independent_1']
+        independent_2_particle_names = extra_pane_particle_names['independent_2']
+        dependent_particle_names = extra_pane_particle_names['dependent']
+
+        # Plot hist
+        for dependent_particle_name in dependent_particle_names:
+                dependent_particle_label = label_dict[dependent_particle_name]
+
+                # Compute independent particle 1
+                independent_1_class_scores = [softmaxes_list[dependent_particle_label][:, label_dict[pname]] for pname in independent_1_particle_names]
+                    
+                summed_independent_1_class_scores = reduce(lambda x,y : x+y, independent_1_class_scores)
+
+                # Compute independent particle 2
+                independent_2_class_scores = [softmaxes_list[dependent_particle_label][:, label_dict[pname]] for pname in independent_2_particle_names]
+                    
+                summed_independent_2_class_scores = reduce(lambda x,y : x+y, independent_2_class_scores)
+
+                if normalize:
+                    all_class_names = list(set(independent_1_particle_names + independent_2_particle_names + dependent_particle_names))
+
+                    all_class_scores = [softmaxes_list[dependent_particle_label][:, label_dict[pname]] for pname in all_class_names]
+
+                    summed_class_scores = reduce(lambda x,y : x+y, all_class_scores)
+
+                    summed_independent_1_class_scores = summed_independent_1_class_scores / summed_class_scores
+                    summed_independent_2_class_scores = summed_independent_2_class_scores / summed_class_scores
+
+                ax.hist2d(x=summed_independent_1_class_scores,
+                          y=summed_independent_2_class_scores,
+                          bins=bins, cmap='viridis')
+                        #label=legend_label_dict[dependent_particle_name],
+                        #alpha=0.7,histtype=u'step',bins=bins,density=True,
+                        #linestyle=linestyles[dependent_particle_label],linewidth=2)
+        ax.legend(loc=legend_locs[-1] if legend_locs is not None else 'best', fontsize=legend_size)
+        xlabel = ''
+
+        # Construct axis labels
+        """
+        for list_index, independent_particle_name in enumerate(independent_particle_names):
+            xlabel += 'P({})'.format(legend_label_dict[independent_particle_name])
+            if list_index < len(independent_particle_names) - 1:
+                xlabel += ' + '
+        """
+        
+        ax.set_xlabel(xlabel, fontsize=label_size)
+        ax.set_ylabel('Normalized Density', fontsize=label_size)
+    
+    plt.tight_layout(rect=[0, 0.03, 1, 0.90])
+
+    if title is not None:
+        fig.suptitle(title, fontsize=24)
 
     if show:
         plt.show()
@@ -338,12 +497,12 @@ def separate_particles(input_array_list, labels, index_dict, desired_labels=['ga
 
     return separated_arrays
 
-def compute_roc(softmax_out_val, labels_val, true_label, false_label):
+def compute_roc(softmax, labels_val, true_label, false_label, normalize=True):
     """
     Compute ROC metrics from softmax and labels for given particle labels
 
     Args:
-        softmax_out_val     ... array of softmax outputs
+        softmax             ... array of softmax outputs
         labels_val          ... 1D array of actual labels
         true_label          ... label of class to be used as true binary label
         false_label         ... label of class to be used as false binary label
@@ -351,14 +510,21 @@ def compute_roc(softmax_out_val, labels_val, true_label, false_label):
     Returns:
         fpr, tpr, thr       ... false positive rate, true positive rate, thresholds used to compute scores
     """
-    labels_val_for_comp = labels_val[np.where( (labels_val==false_label) | (labels_val==true_label)  )]
-    softmax_out_for_comp = softmax_out_val[np.where(  (labels_val==false_label) | (labels_val==true_label)  )][:,true_label]
+    comparison_idxs = np.where( (labels_val==false_label) | (labels_val==true_label) )
 
-    fpr, tpr, thr = roc_curve(labels_val_for_comp, softmax_out_for_comp, pos_label=true_label)
+    labels_for_comp = labels_val[comparison_idxs]
+    
+    true_class_scores = softmax[comparison_idxs][:,true_label]
+
+    if normalize:
+        normalization_factor = softmax[comparison_idxs][:, true_label] + softmax[comparison_idxs][:, false_label]
+        true_class_scores = true_class_scores / normalization_factor
+
+    fpr, tpr, thr = roc_curve(labels_for_comp, true_class_scores, pos_label=true_label)
     
     return fpr, tpr, thr
 
-def plot_roc(fpr, tpr, thr, true_label_name, false_label_name, fig_list=None, xlims=None, ylims=None, axes=None, linestyle=None, linecolor=None, plot_label=None, show=False):
+def plot_roc(fpr, tpr, thr, true_label_name, false_label_name, fig_list=None, xlims=None, ylims=None, axes=None, linestyle=None, linecolor=None, plot_label=None, title='', font_scale=1., legend_loc='upper right', show=False):
     """
     Plot ROC curves for a classifier that has been evaluated on a validation set with respect to given labels
     
@@ -394,7 +560,6 @@ def plot_roc(fpr, tpr, thr, true_label_name, false_label_name, fig_list=None, xl
             fig2, ax2 = plt.subplots(figsize=(12,8),facecolor="w")
             figs.append(fig2)
     else:
-        print(axes)
         axes_iter = iter(axes)
         if 0 in fig_list:
             ax0 = next(axes_iter)
@@ -437,12 +602,12 @@ def plot_roc(fpr, tpr, thr, true_label_name, false_label_name, fig_list=None, xl
 
         xlabel = f'{true_label_name} Signal Efficiency'
         ylabel = f'{false_label_name} Background Rejection'
-        title = '{} vs {} Rejection'.format(true_label_name, false_label_name)
+        title = '{} vs {} Rejection '.format(true_label_name, false_label_name) + title
 
-        ax1.set_xlabel(xlabel, fontsize=20)
-        ax1.set_ylabel(ylabel, fontsize=20)
-        ax1.set_title(title, fontsize=24)
-        ax1.legend(loc="upper right",prop={'size': 16}) #bbox_to_anchor=(1.05, 1), loc='upper left') #loc="upper right",prop={'size': 16})
+        ax1.set_xlabel(xlabel, fontsize=20*font_scale)
+        ax1.set_ylabel(ylabel, fontsize=20*font_scale)
+        ax1.set_title(title, fontsize=24*font_scale)
+        ax1.legend(loc=legend_loc, prop={'size': 16*0.8*font_scale}) # bbox_to_anchor=(1.05, 1), loc='upper left')
 
         if xlims is not None:
             xlim = next(xlim_iter)
