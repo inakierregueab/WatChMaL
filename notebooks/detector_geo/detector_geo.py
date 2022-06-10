@@ -6,27 +6,30 @@ import matplotlib.pyplot as plt
 #    POSITIONS OF MPMTS IN THE 2D IMAGE
 positions = np.load('/data/neutrinos/IWCD_Data/IWCDshort_mPMT_image_positions.npz')
 positions_df = pd.DataFrame(positions['mpmt_image_positions'])
+plt.rcParams.update({'font.size': 13})
 plt.figure(figsize=(14, 8))
 ax = positions_df.plot.scatter(x=1, y=0)
-ax.set_xlabel(r'$x$')
-ax.set_ylabel(r'$y$')
-ax.set_ylim(top=30)
-ax.set_title('mPMTs positions (unrolled cylinder)')
+ax.set_xlabel('')
+ax.set_ylabel(r'')
+ax.set_ylim(top=29)
+#ax.set_title('mPMTs positions (unwrapped cylinder)')
+plt.savefig('mpmt_flatten.png', dpi=300, bbox_inches="tight")
 plt.show()
 
 
 #    POSITIONS, ORIENTATION AND TUBE NUMBER FOR EACH PMT IN 3D
-geo = np.load('/Users/mariateresaalvarez-buhillapuig/Desktop/repositories/WatChMaL/data/geo_mPMTshort.npz')
+geo = np.load('/home/ierregue/ssh_tunel/data/geo_mPMTshort.npz')
 geo_dict = {}
 for item in geo.files:
     geo_dict[item] = geo[item]
 
 positions = geo_dict['position']
-
-fig = plt.figure(figsize=(10, 10))
+plt.rcParams.update({'font.size': 15})
+fig = plt.figure(figsize=(12, 10))
 ax = plt.axes(projection="3d")
-ax.scatter3D(positions[:,2], positions[:,0], positions[:,1], color="royalblue", s=1)
-plt.title("PMTs positions", size=20)
+ax.scatter3D(positions[:,2], positions[:,0], positions[:,1], color="cornflowerblue", s=1.5)
+#plt.title("PMTs positions", size=25)
+plt.savefig('pmt_positions.png', dpi=300, bbox_inches="tight")
 plt.tight_layout()
 plt.show(block=False)
 

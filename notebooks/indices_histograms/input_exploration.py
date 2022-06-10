@@ -10,6 +10,7 @@ from watchmal.dataset.h5_dataset import H5Dataset
 # LOAD INDEX SPLITTER:
 splitting = np.load('/home/ierregue/ssh_tunel/data/IWCD_mPMT_Short_2_class_idxs_14_files.npz')
 train_idxs = splitting['train_idxs']
+#train_idxs = train_idxs[:100000]
 
 #   DATASET
 data = {
@@ -30,7 +31,7 @@ dataset = H5Dataset(h5_path, is_distributed=False)
 raw_h5_file = h5py.File(h5_path, "r")
 
 # Get scaling constants
-mu_q = np.mean(dataset.hdf5_hit_charge[:1000000000])
+"""mu_q = np.mean(dataset.hdf5_hit_charge[:1000000000])
 mu_t = np.mean(dataset.hdf5_hit_time[:1000000000])
 std_q = np.std(dataset.hdf5_hit_charge[:1000000000])
 std_t = np.std(dataset.hdf5_hit_time[:1000000000])
@@ -38,16 +39,16 @@ print('')
 print(mu_q)
 print(mu_t)
 print(std_q)
-print(std_t)
+print(std_t)"""
 
 # Get event-hit mapping for selected events
 data['event_hits_index'] = dataset.event_hits_index[train_idxs]
 
 # Add hit info (pmt, charge and time) and labels
-data['max_charge_per_event'] = []
+data['std_charge_per_event'] = []
 data['mean_charge_per_event'] = []
 data['charge_sum_per_event'] = []
-data['max_time_per_event'] = []
+data['std_time_per_event'] = []
 data['mean_time_per_event'] = []
 data['num_hits_per_event'] = []
 for idx in train_idxs:
@@ -55,10 +56,10 @@ for idx in train_idxs:
     data['hit_charge'] += list(dataset.event_hit_charges)
     data['hit_time'] += list(dataset.event_hit_times)
     data['hit_pmt'] += list(dataset.event_hit_pmts)
-    data['max_charge_per_event'].append(np.max(dataset.event_hit_charges))
+    data['std_charge_per_event'].append(np.std(dataset.event_hit_charges))
     data['mean_charge_per_event'].append(np.mean(dataset.event_hit_charges))
     data['charge_sum_per_event'].append(np.sum(dataset.event_hit_charges))
-    data['max_time_per_event'].append(np.max(dataset.event_hit_times))
+    data['std_time_per_event'].append(np.std(dataset.event_hit_times))
     data['mean_time_per_event'].append(np.mean(dataset.event_hit_times))
     data['num_hits_per_event'].append(len(dataset.event_hit_pmts))
 
@@ -90,89 +91,92 @@ for key in data.keys():
     data[key] = np.array(data[key])
 
 dict_to_df = {}
+hits_to_df = {}
 for key in data.keys():
     if key not in ['hit_charge', 'hit_time', 'hit_pmt', 'event_hits_index']:
         dict_to_df[key] = data[key]
 
-# Similar values in both subsets of indices (236k and 23k events)
-charge_normalizer = np.mean(data['max_charge_per_event'])   #90
-time_normalizer = np.mean(data['max_time_per_event'])       #1700
 
 events_df = pd.DataFrame(dict_to_df, columns=dict_to_df.keys())
 events_df['event_label'] = events_df['event_label'].map({0: 'gamma', 1: 'electron'})
 
 # Plot kernel densities
-def kde_plotter_metadata(df):
-    # KDE plot
-    fig, axes = plt.subplots(nrows=2, ncols=3, figsize=(15, 10))
+def kde_plotter_events(df):
+    plt.rcParams.update({'font.size': 19})
+    fig, axes = plt.subplots(nrows=3, ncols=4, figsize=(20, 16))
+
     df.groupby('event_label')['polar'].plot.kde(ax=axes[0, 0])
     axes[0, 0].set_ylabel('')
-    axes[0, 0].set_xlabel(r'$\theta$')
-    axes[0, 0].legend()
+    axes[0, 0].set_xlabel(r'Angle $\theta$ [rad]')
+    axes[0, 0].legend([r'$e$', r'$\gamma$'], loc=2)
+    axes[0, 0].ticklabel_format(axis="y", style="sci", scilimits=(0, 0))
+
     df.groupby('event_label')['azimuth'].plot.kde(ax=axes[0, 1])
     axes[0, 1].set_ylabel('')
-    axes[0, 1].set_xlabel(r'$\varphi$')
-    #axes[0, 1].legend()
+    axes[0, 1].set_xlabel(r'Angle $\varphi$ [rad]')
+    axes[0, 1].ticklabel_format(axis="y", style="sci", scilimits=(0, 0))
+
     df.groupby('event_label')['energies'].plot.kde(ax=axes[0, 2])
     axes[0, 2].set_ylabel('')
-    axes[0, 2].set_xlabel(r'$E$')
-    #axes[0, 2].legend()
-    df.groupby('event_label')['x'].plot.kde(ax=axes[1, 0])
-    axes[1, 0].set_ylabel('')
-    axes[1, 0].set_xlabel(r'$x$')
-    #axes[1, 0].legend()
-    df.groupby('event_label')['y'].plot.kde(ax=axes[1, 1])
-    axes[1, 1].set_ylabel('')
-    axes[1, 1].set_xlabel(r'$y$')
-    #axes[1, 1].legend()
-    df.groupby('event_label')['z'].plot.kde(ax=axes[1, 2])
-    axes[1, 2].set_ylabel('')
-    axes[1, 2].set_xlabel(r'$z$')
-    #axes[1, 2].legend()
-    fig.tight_layout()
-    #TODO: fix legend
-    #fig.legend(handles=['-b', '-r'], labels=['electron', 'gamma'], loc='upper right')
-    plt.show(block=False)
-    plt.close()
+    axes[0, 2].set_xlabel('Energy [MeV]')
+    axes[0, 2].ticklabel_format(axis="y", style="sci", scilimits=(0, 0))
 
+    df.groupby('event_label')['x'].plot.kde(ax=axes[0, 3])
+    axes[0, 3].set_ylabel('')
+    axes[0, 3].set_xlabel(r'Coordinate $x$')
+    axes[0, 3].ticklabel_format(axis="y", style="sci", scilimits=(0, 0))
 
-def kde_plotter_hits(df):
-    # KDE plot
-    fig, axes = plt.subplots(nrows=2, ncols=3, figsize=(15, 10))
-    df.groupby('event_label')['max_charge_per_event'].plot.kde(ax=axes[0, 0])
-    axes[0, 0].set_ylabel('')
-    axes[0, 0].set_xlabel(r'$Q_{max}$ per event')
-    axes[0, 0].legend()
-    df.groupby('event_label')['mean_charge_per_event'].plot.kde(ax=axes[0, 1])
-    axes[0, 1].set_ylabel('')
-    axes[0, 1].set_xlabel(r'$\bar{Q}$ per event')
-    #axes[0, 1].legend()
-    df.groupby('event_label')['charge_sum_per_event'].plot.kde(ax=axes[0, 2])
-    axes[0, 2].set_ylabel('')
-    axes[0, 2].set_xlabel(r'$\sum Q$ per event')
-    #axes[0, 2].legend()
-    df.groupby('event_label')['max_time_per_event'].plot.kde(ax=axes[1, 0])
+    df.groupby('event_label')['y'].plot.kde(ax=axes[1, 0])
     axes[1, 0].set_ylabel('')
-    axes[1, 0].set_xlabel(r'$T_{max}$ per event')
-    #axes[1, 0].legend()
-    df.groupby('event_label')['mean_time_per_event'].plot.kde(ax=axes[1, 1])
+    axes[1, 0].set_xlabel(r'Coordinate $y$')
+    axes[1, 0].ticklabel_format(axis="y", style="sci", scilimits=(0, 0))
+
+    df.groupby('event_label')['z'].plot.kde(ax=axes[1, 1])
     axes[1, 1].set_ylabel('')
-    axes[1, 1].set_xlabel(r'$\bar{T}$ per event')
-    #axes[1, 1].legend()
+    axes[1, 1].set_xlabel(r'Coordinate $z$')
+    axes[1, 1].ticklabel_format(axis="y", style="sci", scilimits=(0, 0))
+
     df.groupby('event_label')['num_hits_per_event'].plot.kde(ax=axes[1, 2])
     axes[1, 2].set_ylabel('')
-    axes[1, 2].set_xlabel('Num. hits per event')
-    #axes[1, 2].legend()
+    axes[1, 2].set_xlabel(r'Number of hits per event')
+    axes[1, 2].ticklabel_format(axis="y", style="sci", scilimits=(0, 0))
+
+    df.groupby('event_label')['mean_charge_per_event'].plot.kde(ax=axes[2, 0])
+    axes[2, 0].set_ylabel('')
+    axes[2, 0].set_xlabel(r'Mean charge per event')
+    axes[2, 0].ticklabel_format(axis="y", style="sci", scilimits=(0, 0))
+
+    df.groupby('event_label')['mean_time_per_event'].plot.kde(ax=axes[2, 2])
+    axes[2, 2].set_ylabel('')
+    axes[2, 2].set_xlabel(r'Mean time per event [ns]')
+    axes[2, 2].ticklabel_format(axis="y", style="sci", scilimits=(0, 0))
+
+    df.groupby('event_label')['charge_sum_per_event'].plot.kde(ax=axes[1, 3])
+    axes[1, 3].set_ylabel('')
+    axes[1, 3].set_xlabel(r'Total charge per event')
+    axes[1, 3].ticklabel_format(axis="y", style="sci", scilimits=(0, 0))
+
+    df.groupby('event_label')['std_charge_per_event'].plot.kde(ax=axes[2, 1])
+    axes[2, 1].set_ylabel('')
+    axes[2, 1].set_xlabel(r'Std of charge per event')
+    axes[2, 1].ticklabel_format(axis="y", style="sci", scilimits=(0, 0))
+
+    df.groupby('event_label')['std_time_per_event'].plot.kde(ax=axes[2, 3])
+    axes[2, 3].set_ylabel('')
+    axes[2, 3].set_xlabel(r'Std of time per event [ns]')
+    axes[2, 3].ticklabel_format(axis="y", style="sci", scilimits=(0, 0))
+
     fig.tight_layout()
+    plt.savefig('events_distrib.png', dpi=300, bbox_inches="tight")
     plt.show(block=False)
     plt.close()
 
-kde_plotter_metadata(events_df)
-kde_plotter_hits(events_df)
 
-"""
-# Feature correlation
-pd.plotting.scatter_matrix(events_df.drop(columns=['labels', 'event_hits_index']), alpha=0.2, figsize=(15, 15), diagonal='kde')
-plt.show(block=False)
-plt.savefig('./../../outputs/analysis/features_correlation _matrix.png')
-"""
+def hist_plotter_hits(data):
+    fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(15, 10))
+    axes[0].hist(data['hit_charge'], histtype="stepfilled", bins=25, alpha=0.8, density=True)
+    axes[1].hist(data['hit_time'], histtype="stepfilled", bins=25, alpha=0.8, density=True)
+    plt.show(block=False)
+
+kde_plotter_events(events_df)
+#hist_plotter_hits(data)

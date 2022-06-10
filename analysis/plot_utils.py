@@ -264,6 +264,7 @@ def plot_classifier_response(softmaxes, labels, particle_names, label_dict, bins
     fig, axes = plt.subplots(1, num_panes, figsize=(5*num_panes,5), facecolor='w')
     inverse_label_dict = {value:key for key, value in label_dict.items()}
 
+    label_dict = {k: v for k, v in sorted(label_dict.items(), key=lambda item: item[1])}
     softmaxes_list = separate_particles([softmaxes], labels, label_dict, [name for name in label_dict.keys()])[0]
 
     if isinstance(particle_names[0],str):
@@ -276,7 +277,7 @@ def plot_classifier_response(softmaxes, labels, particle_names, label_dict, bins
             ax.hist(softmaxes_list[dependent_particle_label][:,independent_particle_label],
                     label=f"{legend_label_dict[inverse_label_dict[dependent_particle_label]]} Events",
                     alpha=0.7,histtype=u'step',bins=bins,density=True,
-                    linestyle=linestyles[dependent_particle_label],linewidth=2)            
+                    linestyle=linestyles[dependent_particle_label] if linestyles is not None else 'solid',linewidth=2)            
         ax.legend(loc=legend_locs[independent_particle_label] if legend_locs is not None else 'best', fontsize=legend_size)
         ax.set_xlabel('P({})'.format(legend_label_dict[inverse_label_dict[independent_particle_label]]), fontsize=label_size)
         ax.set_ylabel('Normalized Density', fontsize=label_size)
@@ -353,7 +354,7 @@ def plot_reduced_classifier_response(softmax, labels, comparisons_list, label_di
                 ax.hist(summed_independent_class_scores,
                         label=legend_label_dict[dependent_particle_name],
                         alpha=0.7,histtype=u'step',bins=bins,density=True,
-                        linestyle=linestyles[dependent_particle_label],linewidth=2)         
+                        linestyle=linestyles[dependent_particle_label] if linestyles is not None else 'solid',linewidth=2)         
         ax.legend(loc=legend_locs[-1] if legend_locs is not None else 'best', fontsize=legend_size)
         xlabel = ''
 
@@ -524,7 +525,7 @@ def compute_roc(softmax, labels_val, true_label, false_label, normalize=True):
     
     return fpr, tpr, thr
 
-def plot_roc(fpr, tpr, thr, true_label_name, false_label_name, fig_list=None, xlims=None, ylims=None, axes=None, linestyle=None, linecolor=None, plot_label=None, title='', font_scale=1., legend_loc='upper right', show=False):
+def plot_roc(fpr, tpr, thr, true_label_name, false_label_name, fig_list=None, xlims=None, ylims=None, axes=None, linestyle=None, linecolor=None, plot_label=None, title='', font_scale=1., legend_loc='upper right', show=False, scale='log', publication=True):
     """
     Plot ROC curves for a classifier that has been evaluated on a validation set with respect to given labels
     
@@ -591,10 +592,18 @@ def plot_roc(fpr, tpr, thr, true_label_name, false_label_name, fig_list=None, xl
             ax0.set_ylim(ylim[0],ylim[1])
     
     if 1 in fig_list: 
-        ax1.tick_params(axis="both", labelsize=20)
-        ax1.set_yscale('log')
-        ax1.grid(b=True, which='major', color='gray', linestyle='-')
-        ax1.grid(b=True, which='minor', color='gray', linestyle='--')
+        ax1.tick_params(axis="both", labelsize=20*font_scale)
+        ax1.set_yscale(scale)
+        if not publication:
+            ax1.grid(b=True, which='major', color='gray', linestyle='-')
+            ax1.grid(b=True, which='minor', color='gray', linestyle='--')
+
+        random_classifier_tpr = np.linspace(0, 1, len(tpr))
+        random_classifier_fpr = np.linspace(0, 1, len(tpr))
+        random_classifier_rejection = 1 / (random_classifier_fpr + 1e-10)
+        random_classifier_AUC = auc(random_classifier_fpr, random_classifier_tpr)
+        ax1.plot(random_classifier_tpr, random_classifier_rejection, linestyle=':', color='k')
+
         ax1.plot(tpr, rejection, 
                     label=plot_label + ', AUC={:.3f}'.format(roc_AUC)  if plot_label is not None else r'{} VS {} ROC, AUC={:.3f}'.format(true_label_name, false_label_name, roc_AUC),
                     linestyle=linestyle  if linestyle is not None else None,
@@ -607,7 +616,7 @@ def plot_roc(fpr, tpr, thr, true_label_name, false_label_name, fig_list=None, xl
         ax1.set_xlabel(xlabel, fontsize=20*font_scale)
         ax1.set_ylabel(ylabel, fontsize=20*font_scale)
         ax1.set_title(title, fontsize=24*font_scale)
-        ax1.legend(loc=legend_loc, prop={'size': 16*0.8*font_scale}) # bbox_to_anchor=(1.05, 1), loc='upper left')
+        ax1.legend(loc=legend_loc, prop={'size': 16*font_scale}) # bbox_to_anchor=(1.05, 1), loc='upper left')
 
         if xlims is not None:
             xlim = next(xlim_iter)

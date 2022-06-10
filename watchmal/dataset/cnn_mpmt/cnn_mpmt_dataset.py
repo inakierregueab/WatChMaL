@@ -85,6 +85,34 @@ class CNNmPMTDataset(H5Dataset):
 
         return data
 
+    def process_data_scaled(self, hit_pmts, hit_data, data_type):
+        """
+        Returns event data from dataset associated with a specific index
+        Args:
+            hit_pmts                ... array of ids of hit pmts
+            hid_data                ... array of data associated with hits
+            data_type               ... str specifying charge or time data
+
+        Returns:
+            data                    ... array of hits in cnn format
+        """
+        hit_data = self.feature_scaling(hit_data, data_type)
+
+        hit_mpmts = hit_pmts // pmts_per_mpmt  # Mapping each PMT hit to its correspondent mPMT
+        hit_pmt_in_modules = hit_pmts % pmts_per_mpmt  # Mapping each PMT to a channel (position in its mPMT)
+
+        hit_rows = self.mpmt_positions[hit_mpmts, 0]
+        hit_cols = self.mpmt_positions[hit_mpmts, 1]
+
+        data = np.zeros(self.data_size, dtype=np.float32)
+        data[hit_pmt_in_modules, hit_rows, hit_cols] = hit_data
+
+        # fix barrel array indexing to match endcaps in xyz ordering
+        barrel_data = data[:, self.barrel_rows, :]
+        data[:, self.barrel_rows, :] = barrel_data[barrel_map_array_idxs, :, :]
+
+        return data
+
     def __getitem__(self, item):
 
         data_dict = super().__getitem__(item)
@@ -110,16 +138,16 @@ class CNNmPMTDataset(H5Dataset):
 
         data_dict["data"] = processed_image
 
-        """
-        To plot events: 
+
+        """#To plot events:
 
         time_image = np.array(time_image)
         charge_image = np.array(charge_image)
-        self.event_plotter(charge_image, mode='heatmap', type='charge')
-        self.event_plotter(time_image, mode='heatmap', type='time')
+        self.event_plotter(charge_image, mode='heatmap', data_type='charge')
+        self.event_plotter(time_image, mode='heatmap', data_type='time')
         time_image = from_numpy(time_image)
-        charge_image = from_numpy(charge_image)
-        """
+        charge_image = from_numpy(charge_image)"""
+
         return data_dict
 
     def fix_transformation(self):
@@ -132,21 +160,37 @@ class CNNmPMTDataset(H5Dataset):
     def from_data_to_image(self, hit_data, rand_choice, data_type='c'):
 
         # Build image with data
+        #hit_data_2 = hit_data
         hit_data = from_numpy(self.process_data(self.event_hit_pmts, hit_data, data_type))
+
+        #hit_data_2 = from_numpy(self.process_data_scaled(self.event_hit_pmts, hit_data_2, data_type))
 
         # Perform transformation
         if self.transforms is not None and bool(rand_choice):
             hit_data = du.apply_random_transformations(self.transforms, hit_data, rand_choice)
 
+        #charge_image = np.array(hit_data)
+        #self.event_plotter(charge_image, mode='heatmap', data_type='charge')
+        #charge_image = np.array(hit_data_2)
+        #self.event_plotter(charge_image, mode='heatmap', data_type='charge')
+
         # Add padding
         if self.pad:
             hit_data = self.mpmtPadding(hit_data)
+            #charge_image = np.array(hit_data)
+            #self.event_plotter_padded(charge_image, mode='heatmap', data_type='charge')
 
         # collapse arrays if desired, for Q+Ts model add: and data_type == 't'
         if self.collapse_arrays and data_type == 't':
             mean_channel = torch.mean(hit_data, 0, keepdim=True)
             std_channel = torch.std(hit_data, 0, keepdim=True)
-            hit_data = torch.cat((mean_channel, std_channel), 0)
+            """hit_data = torch.cat((mean_channel, std_channel), 0)
+            charge_image = np.array(mean_channel)
+            self.event_plotter(charge_image, mode='heatmap', data_type='charge')
+            charge_image = np.array(std_channel)
+            self.event_plotter(charge_image, mode='heatmap', data_type='charge')
+            """
+
         return hit_data
 
     def horizontal_flip(self, data):
@@ -270,21 +314,21 @@ class CNNmPMTDataset(H5Dataset):
         """
         if data_type == 'charge':
             cmap = 'inferno'
-            title = 'Event sum charge per mPMT (unrolled tank)'
+            #title = 'Charge sum per mPMT'
             collapsed_data = np.sum(data, axis=0)
         elif data_type == 'time':
             cmap = 'cividis'
             title = 'Average time detection per mPMT (unrolled tank)'
             collapsed_data = np.mean(data, axis=0)
 
-        plt.figure(figsize=(14, 8))
+        plt.rcParams.update({'font.size': 25})
+        plt.figure(figsize=(12, 8))
 
         if mode == 'scatter':
-            coords = np.where(collapsed_data > 0.)   # Threshold
+            coords = np.where(collapsed_data > 0.)  # Threshold
             mpmt_charge = collapsed_data[coords]
             x = coords[1]
             y = coords[0]
-
             plt.scatter(x, y, c=mpmt_charge, s=30, cmap=cmap, vmin=0)
 
         elif mode == 'heatmap':
@@ -296,11 +340,58 @@ class CNNmPMTDataset(H5Dataset):
 
         plt.yticks(np.arange(0, 30, 5))
         plt.xticks(np.arange(0, 40, 5))
-        plt.xlabel(r'$x$')
-        plt.ylabel(r'$y$')
-        plt.title(title)
-        plt.colorbar()
+        #plt.title(title)
+        cbar = plt.colorbar()
+        cbar.formatter.set_powerlimits((0, 0))
+        cbar.update_ticks()
         plt.tight_layout()
+        #plt.savefig('/home/ierregue/ssh_tunel/charge_ring.png', dpi=300, bbox_inches="tight")
+        plt.show()
+
+    def event_plotter_padded(self, data, mode, data_type):
+        """
+        Collapses all channels and plots the event data
+        :param data: ndarray (n_channels, 29, 40)
+        :param mode: str, scatter or heatmap
+        :param data_type: str, charge or time
+        :return: None
+        """
+        if data_type == 'charge':
+            cmap = 'inferno'
+            #title = 'Charge sum per mPMT (padded)'
+            collapsed_data = np.sum(data, axis=0)
+        elif data_type == 'time':
+            cmap = 'cividis'
+            title = 'Average time detection per mPMT (unrolled tank)'
+            collapsed_data = np.mean(data, axis=0)
+
+        plt.rcParams.update({'font.size': 25})
+        plt.figure(figsize=(17, 8))
+
+        if mode == 'scatter':
+            coords = np.where(collapsed_data > 0.)  # Threshold
+            mpmt_charge = collapsed_data[coords]
+            x = coords[1]
+            y = coords[0]
+            plt.scatter(x, y, c=mpmt_charge, s=30, cmap=cmap, vmin=0)
+
+        elif mode == 'heatmap':
+            plt.pcolor(collapsed_data, cmap=cmap)
+            plt.axhline(10, color='w', linewidth=0.5)
+            plt.axhline(19, color='w', linewidth=0.5)
+            plt.axvline(15, color='w', linewidth=0.5)
+            plt.axvline(25, color='w', linewidth=0.5)
+            plt.axvline(35, color='w', linewidth=0.5)
+            plt.axvline(45, color='w', linewidth=0.5)
+
+        plt.yticks(np.arange(0, 30, 5))
+        plt.xticks(np.arange(0, 60, 5))
+        #plt.title(title)
+        cbar = plt.colorbar()
+        cbar.formatter.set_powerlimits((0, 0))
+        cbar.update_ticks()
+        plt.tight_layout()
+        #plt.savefig('/home/ierregue/ssh_tunel/charge_ring_padded.png', dpi=300, bbox_inches="tight")
         plt.show()
 
     def feature_scaling(self, hit_array, data_type):
