@@ -184,8 +184,8 @@ class CNNmPMTDataset(H5Dataset):
         if self.collapse_arrays and data_type == 't':
             mean_channel = torch.mean(hit_data, 0, keepdim=True)
             std_channel = torch.std(hit_data, 0, keepdim=True)
-            """hit_data = torch.cat((mean_channel, std_channel), 0)
-            charge_image = np.array(mean_channel)
+            hit_data = torch.cat((mean_channel, std_channel), 0)
+            """charge_image = np.array(mean_channel)
             self.event_plotter(charge_image, mode='heatmap', data_type='charge')
             charge_image = np.array(std_channel)
             self.event_plotter(charge_image, mode='heatmap', data_type='charge')
