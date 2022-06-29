@@ -465,8 +465,8 @@ def multi_plot_roc(fprs, tprs, thrs, true_label_name, false_label_name, fig_list
         plot_labels             ... list of strings to use in title of plots
         show                    ... if true then display figures, otherwise return figures
     '''
-    rejections = [1.0/(fpr+1e-10) for fpr in fprs]
-    AUCs = [auc(fpr,tpr) for fpr, tpr in zip(fprs, tprs)]
+    rejections = [1.0 / (fpr + 1e-10) for fpr in fprs]
+    AUCs = [auc(fpr, tpr) for fpr, tpr in zip(fprs, tprs)]
 
     num_panes = len(fig_list)
     fig, axes = plt.subplots(num_panes, 1, figsize=(12,8*num_panes))
@@ -518,11 +518,14 @@ def bhattacharyya_d(a: dict, b: dict) -> float:
     return distance
 
 
-def get_dropout_rates(folder, base_path='./data/dropout/'):
-    infile = base_path + folder +'/main.log'
+def get_dropout_rates(folder, base_path='./data/dropout/', model=False):
+    infile = base_path + folder + '/main.log'
 
     important = []
     keep_phrases = ["fc_dropout", "bb_dropout", "lr"]
+
+    if model == True:
+        keep_phrases.append('weight_file')
 
     with open(infile) as f:
         f = f.readlines()
@@ -530,7 +533,7 @@ def get_dropout_rates(folder, base_path='./data/dropout/'):
     for line in f:
         for phrase in keep_phrases:
             if phrase in line:
-                important.append(float(re.findall('\d+\.?\d*', line)[0]))
+                important.append(float(re.findall("\d+\.?\d*", line)[0]))
                 break
 
     # first is fc then bb
